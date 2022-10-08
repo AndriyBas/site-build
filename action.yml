@@ -1,0 +1,10 @@
+name: 'Site Build'
+description: 'Description'
+author: 'Author'
+branding:
+  icon: 'download-cloud'
+  color: 'gray-dark'
+
+runs:
+  using: 'node16'
+  main: 'index.js'
