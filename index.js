@@ -13,8 +13,8 @@ const CONFIG_FILE_NAME = "wfconfig.yml";
 const CSS_REGEX =
   /<link[ \t\n]{1,}href[ \t]{0,}=[ \t]{0,}"(https?:\/\/[0-9a-zA-Z\-\.\_\~]*(?:webflow\.com|website-files\.com)\/[^><]*\.css)"[ \t\n]{0,}.*?\/>/is;
 const CSS_FILE_NAME = "style.css";
-// const CSS_REPLACE_STRING_1 = `<link href="./${CSS_FILE_NAME}" rel="stylesheet" type="text/css"/>`;
-// const CSS_REPLACE_STRING_2 = `<link href="../${CSS_FILE_NAME}" rel="stylesheet" type="text/css"/>`;
+const CSS_REPLACE_STRING_1 = `<link href="./${CSS_FILE_NAME}" rel="stylesheet" type="text/css"/>`;
+const CSS_REPLACE_STRING_2 = `<link href="../${CSS_FILE_NAME}" rel="stylesheet" type="text/css"/>`;
 
 const JS_REGEX =
   /<script[ \t\n]{1,}src[ \t]{0,}=[ \t]{0,}"(https?:\/\/[0-9a-zA-Z\-\.\_\~]*(?:webflow\.com|website-files\.com)\/[^><]*\.js)"[ \t\n]{0,}.*?><\/script>/is;
@@ -298,7 +298,15 @@ async function purgeAndEmbedHTML(path, htmlCode, cssCode, jsCode) {
   text = text.replace(/<html /im, "\n<html ");
 
   // replace the CSS
-  text = text.replace(CSS_REGEX, `<style>${purgeCSSResults[0].css}</style>`);
+  // text = text.replace(CSS_REGEX, `<style>${purgeCSSResults[0].css}</style>`);
+
+  text = text.replace(CSS_REGEX, `<style>${cssCode}</style>`);
+
+  // text = text.replace(
+  //   CSS_REGEX,
+  //   path.includes("/") ? CSS_REPLACE_STRING_2 : CSS_REPLACE_STRING_1
+  // );
+
   // replace the JS
   text = text.replace(
     JS_REGEX,
