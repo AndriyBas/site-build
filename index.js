@@ -5,7 +5,7 @@ const fs = require("fs").promises;
 const { PurgeCSS } = require("purgecss");
 const { JSDOM } = require("jsdom");
 
-const RETRY_COUNT = 3;
+const RETRY_COUNT = 4;
 const RETRY_DELAY = 5 * 1000; // 5 sec
 
 const CONFIG_FILE_NAME = "wfconfig.yml";
@@ -128,6 +128,7 @@ async function buildSite(config) {
     pages = Array.from(new Set([...pages, ...allLinks]));
   }
   await ghWriteFile("sitemap.xml", sitemap);
+  console.log("Total pages: ", pages.length);
   console.log("Pages: ", pages);
 
   const allPages = await Promise.all(
@@ -230,17 +231,19 @@ async function getSinglePage(site, path, cssPage, jsPage) {
 }
 
 async function fetchPage(url, nullFor404 = false) {
-  // const response = await fetch(url);
-  const response = await retry(() => fetch(url), RETRY_COUNT);
+  return await retry(async () => {
+    // const response = await fetch(url);
+    const response = await retry(() => fetch(url), RETRY_COUNT);
 
-  if (!response.ok) {
-    if (nullFor404 && response.status === 404) return null;
-    throw new Error(`${response.status}: ${response.statusText}`);
-  }
+    if (!response.ok) {
+      if (nullFor404 && response.status === 404) return null;
+      throw new Error(`${response.status}: ${response.statusText}`);
+    }
 
-  const body = await response.text();
+    const body = await response.text();
 
-  return body;
+    return body;
+  }, RETRY_COUNT);
 }
 
 function getCSSUrl(index) {
@@ -327,7 +330,9 @@ async function retry(func, retryCount = 0, delay = RETRY_DELAY) {
       await sleep(delay);
       return retry(func, retryCount - 1, delay);
     } else {
-      throw new Error("Too many retries, aborting");
+      throw new Error(
+        `Too many retries, aborting. Original error: ${error.message}`
+      );
     }
   }
 }
