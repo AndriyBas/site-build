@@ -300,12 +300,12 @@ async function purgeAndEmbedHTML(path, htmlCode, cssCode, jsCode) {
   // replace the CSS
   // text = text.replace(CSS_REGEX, `<style>${purgeCSSResults[0].css}</style>`);
 
-  text = text.replace(CSS_REGEX, `<style>${cssCode}</style>`);
+  // text = text.replace(CSS_REGEX, `<style>${cssCode}</style>`);
 
-  // text = text.replace(
-  //   CSS_REGEX,
-  //   path.includes("/") ? CSS_REPLACE_STRING_2 : CSS_REPLACE_STRING_1
-  // );
+  text = text.replace(
+    CSS_REGEX,
+    path.includes("/") ? CSS_REPLACE_STRING_2 : CSS_REPLACE_STRING_1
+  );
 
   // replace the JS
   text = text.replace(
