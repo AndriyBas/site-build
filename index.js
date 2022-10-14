@@ -136,6 +136,7 @@ async function buildSite(config) {
     const allLinks = getLinksFromPage(indexCode, targetHost, "data-skip-fetch");
     pages = Array.from(new Set([...pages, ...allLinks]));
   }
+  sitemap = sitemap.replaceAll(site, targetHost); // replace any dev version with targetHost where present
   await ghWriteFile("sitemap.xml", sitemap);
   console.log("Total pages: ", pages.length);
   console.log("Pages: ", pages);
