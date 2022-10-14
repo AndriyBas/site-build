@@ -30,6 +30,8 @@ const JQUERY_REPLACE_STRING_2 = `<script src="../${JQUERY_FILE_NAME}" type="text
 
 const CONTENT_DIR_NAME = "content";
 
+const SITE_PROXY = "https://site-proxy-3.herokuapp.com"; // NOTE: NO "/" at the end
+
 // write to current directory
 process.env["GITHUB_WORKSPACE"] = process.cwd();
 
@@ -96,7 +98,9 @@ async function buildSite(config) {
     "index",
     indexPage,
     cssPage,
-    jsPage
+    jsPage,
+    site,
+    targetHost
   );
   await ghWriteFile("index.html", indexCode);
 
@@ -132,7 +136,9 @@ async function buildSite(config) {
   console.log("Pages: ", pages);
 
   const allPages = await Promise.all(
-    pages.map((pagePath) => getSinglePage(site, pagePath, cssPage, jsPage))
+    pages.map((pagePath) =>
+      getSinglePage(site, pagePath, cssPage, jsPage, site, targetHost)
+    )
   );
 
   for (const p of allPages) {
@@ -218,11 +224,18 @@ function getLinksFromPage(pageCode, targetHost, skipByAttr) {
   return Array.from(pages);
 }
 
-async function getSinglePage(site, path, cssPage, jsPage) {
+async function getSinglePage(site, path, cssPage, jsPage, devHost, targetHost) {
   try {
     // let html = await retry(() => fetchPage(`${site}/${path}`), RETRY_COUNT);
     let html = await fetchPage(`${site}/${path}`);
-    html = await purgeAndEmbedHTML(path, html, cssPage, jsPage);
+    html = await purgeAndEmbedHTML(
+      path,
+      html,
+      cssPage,
+      jsPage,
+      devHost,
+      targetHost
+    );
     return { path, html };
   } catch (error) {
     console.error(`Failed getting page ${path}: ${error.message}`);
@@ -274,7 +287,29 @@ function getJqueryUrl(index) {
   return jsMatch[1];
 }
 
-async function purgeAndEmbedHTML(path, htmlCode, cssCode, jsCode) {
+function generateProxyCode(devHost, targetHost) {
+  return `<script>
+  const { fetch: originalFetch } = window;
+  window.fetch = async (...oArgs) => {
+      let [oSrc, oConfig ] = oArgs;
+      if (oSrc.indexOf('${targetHost}') >= 0) {
+        let oUrl = new URL(oSrc);
+        oSrc = "${SITE_PROXY}/${devHost}" + oUrl.pathname + oUrl.search;
+      }
+      const resp = await originalFetch(oSrc, oConfig);
+      return resp;
+  };
+  </script>`;
+}
+
+async function purgeAndEmbedHTML(
+  path,
+  htmlCode,
+  cssCode,
+  jsCode,
+  devHost,
+  targetHost
+) {
   // let text = prettier.format(html, { parser: "html" });
   let text = htmlCode;
   const purgeCSSResults = await new PurgeCSS().purge({
@@ -297,8 +332,12 @@ async function purgeAndEmbedHTML(path, htmlCode, cssCode, jsCode) {
   // insert newline after the Timestamp, to have cleaner Git history
   text = text.replace(/<html /im, "\n<html ");
 
+  const proxyCode = generateProxyCode(devHost, targetHost);
   // replace the CSS
-  text = text.replace(CSS_REGEX, `<style>${purgeCSSResults[0].css}</style>`);
+  text = text.replace(
+    CSS_REGEX,
+    `<style>${purgeCSSResults[0].css}</style>${proxyCode}`
+  );
 
   // no minimization
   // text = text.replace(CSS_REGEX, `<style>${cssCode}</style>`);
