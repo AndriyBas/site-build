@@ -93,6 +93,11 @@ async function buildSite(config) {
     await ghWriteFile("_redirects", config.redirects);
   }
 
+  // add Cloudflare _headers (if configured). Docs - https://developers.cloudflare.com/pages/platform/headers/
+  if (config.headers) {
+    await ghWriteFile("_headers", config.headers);
+  }
+
   // parse HTML pages
   const indexCode = await purgeAndEmbedHTML(
     "index",
