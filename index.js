@@ -13,20 +13,23 @@ const CONFIG_FILE_NAME = "wfconfig.yml";
 const CSS_REGEX =
   /<link[ \t\n]{1,}href[ \t]{0,}=[ \t]{0,}"(https?:\/\/[0-9a-zA-Z\-\.\_\~]*(?:webflow\.com|website-files\.com)\/[^><]*\.css)"[ \t\n]{0,}.*?\/>/is;
 const CSS_FILE_NAME = "style.css";
-const CSS_REPLACE_STRING_1 = `<link href="./${CSS_FILE_NAME}" rel="stylesheet" type="text/css"/>`;
-const CSS_REPLACE_STRING_2 = `<link href="../${CSS_FILE_NAME}" rel="stylesheet" type="text/css"/>`;
+const cssReplaceString = (relPath) => {
+  return `<link href="${relPath}${CSS_FILE_NAME}" rel="stylesheet" type="text/css"/>`;
+};
 
 const JS_REGEX =
   /<script[ \t\n]{1,}src[ \t]{0,}=[ \t]{0,}"(https?:\/\/[0-9a-zA-Z\-\.\_\~]*(?:webflow\.com|website-files\.com)\/[^><]*\.js)"[ \t\n]{0,}.*?><\/script>/is;
 const JS_FILE_NAME = "script.js";
-const JS_REPLACE_STRING_1 = `<script src="./${JS_FILE_NAME}" type="text/javascript"></script>`;
-const JS_REPLACE_STRING_2 = `<script src="../${JS_FILE_NAME}" type="text/javascript"></script>`;
+const jsReplaceString = (relPath) => {
+  return `<script src="${relPath}${JS_FILE_NAME}" type="text/javascript"></script>`;
+};
 
 const JQUERY_REGEX =
   /<script[ \t\n]{1,}src[ \t]{0,}=[ \t]{0,}"(https:\/\/[0-9a-zA-Z\-\.\_\~]*cloudfront\.net\/js\/jquery[^><"]*)"[ \t\n]{0,}.*?><\/script>/i;
 const JQUERY_FILE_NAME = "jquery.js";
-const JQUERY_REPLACE_STRING_1 = `<script src="./${JQUERY_FILE_NAME}" type="text/javascript"></script>`;
-const JQUERY_REPLACE_STRING_2 = `<script src="../${JQUERY_FILE_NAME}" type="text/javascript"></script>`;
+const jQueryReplaceString = (relPath) => {
+  return `<script src="${relPath}${JQUERY_FILE_NAME}" type="text/javascript"></script>`;
+};
 
 const CONTENT_DIR_NAME = "content";
 
@@ -362,21 +365,12 @@ async function purgeAndEmbedHTML(
   // text = text.replace(CSS_REGEX, `<style>${cssCode}</style>`);
 
   // use as separate file
-  // text = text.replace(
-  //   CSS_REGEX,
-  //   path.includes("/") ? CSS_REPLACE_STRING_2 : CSS_REPLACE_STRING_1
-  // );
+  // text = text.replace(CSS_REGEX, cssReplaceString(getRelativePath(path)));
 
   // replace the JS
-  text = text.replace(
-    JS_REGEX,
-    path.includes("/") ? JS_REPLACE_STRING_2 : JS_REPLACE_STRING_1
-  );
+  text = text.replace(JS_REGEX, jsReplaceString(getRelativePath(path)));
   // replace the JQuery
-  text = text.replace(
-    JQUERY_REGEX,
-    path.includes("/") ? JQUERY_REPLACE_STRING_2 : JQUERY_REPLACE_STRING_1
-  );
+  text = text.replace(JQUERY_REGEX, jQueryReplaceString(getRelativePath(path)));
   return text;
 }
 
@@ -448,4 +442,9 @@ async function pathExists(path) {
   } catch (error) {
     return false;
   }
+}
+
+function getRelativePath(path) {
+  const count = (path.match(/\//g) || []).length;
+  return count === 0 ? "./" : "../".repeat(count);
 }
