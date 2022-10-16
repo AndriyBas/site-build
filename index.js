@@ -5,7 +5,7 @@ const fs = require("fs").promises;
 const { PurgeCSS } = require("purgecss");
 const { JSDOM } = require("jsdom");
 
-const RETRY_COUNT = 4;
+const RETRY_COUNT = 3;
 const RETRY_DELAY = 5 * 1000; // 5 sec
 
 const CONFIG_FILE_NAME = "wfconfig.yml";
@@ -34,6 +34,13 @@ const SITE_PROXY = "https://site-proxy-3.herokuapp.com"; // NOTE: NO "/" at the 
 
 // write to current directory
 process.env["GITHUB_WORKSPACE"] = process.cwd();
+
+class RetryError extends Error {
+  constructor() {
+    super("Retrying function...");
+    this.name = "RetryError";
+  }
+}
 
 async function init() {
   const configFile = await ghReadFile(CONFIG_FILE_NAME);
@@ -232,7 +239,7 @@ function getLinksFromPage(pageCode, targetHost, skipByAttr) {
 
 async function getSinglePage(site, path, cssPage, jsPage, devHost, targetHost) {
   try {
-    // let html = await retry(() => fetchPage(`${site}/${path}`), RETRY_COUNT);
+    // let html = await retry(() => fetchPage(`${site}/${path}`));
     let html = await fetchPage(`${site}/${path}`);
     html = await purgeAndEmbedHTML(
       path,
@@ -252,17 +259,17 @@ async function getSinglePage(site, path, cssPage, jsPage, devHost, targetHost) {
 async function fetchPage(url, nullFor404 = false) {
   return await retry(async () => {
     // const response = await fetch(url);
-    const response = await retry(() => fetch(url), RETRY_COUNT);
+    const response = await retry(() => fetch(url), RETRY_COUNT, Error); // retry any fetch error
 
     if (!response.ok) {
       if (nullFor404 && response.status === 404) return null;
-      throw new Error(`${response.status}: ${response.statusText}`);
+      throw new RetryError(`${response.status}: ${response.statusText}`);
     }
 
     const body = await response.text();
 
     return body;
-  }, RETRY_COUNT);
+  }, RETRY_COUNT, RetryError);
 }
 
 function getCSSUrl(index) {
@@ -377,17 +384,26 @@ function generateSitemap(targetHost, pages) {
   return sitemap + "\n</urlset>";
 }
 
-async function retry(func, retryCount = 0, delay = RETRY_DELAY) {
+async function retry(
+  func,
+  retryCount = RETRY_COUNT,
+  errorType = RetryError,
+  delay = RETRY_DELAY
+) {
   try {
     return await func();
   } catch (error) {
-    if (retryCount > 0) {
-      await sleep(delay);
-      return retry(func, retryCount - 1, delay);
+    if (error instanceof errorType) {
+      if (retryCount > 0) {
+        await sleep(delay);
+        return retry(func, retryCount - 1, errorType, delay);
+      } else {
+        throw new Error(
+          `Too many retries, aborting. Original error: ${error.message}`
+        );
+      }
     } else {
-      throw new Error(
-        `Too many retries, aborting. Original error: ${error.message}`
-      );
+      throw error;
     }
   }
 }
