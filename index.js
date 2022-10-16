@@ -68,6 +68,13 @@ async function buildSite(config) {
   console.log("Building the website: ", site);
   console.log("On the target host: ", targetHost);
 
+  let inRedirects = actionsCore.getInput('redirects');
+  let inHeaders = actionsCore.getInput('headers');
+  let inRobots = actionsCore.getInput('robots');
+  console.log('inRedirects: ', inRedirects);
+  console.log('inHeaders: ', inHeaders);
+  console.log('inRobots: ', inRobots);
+
   // create dir, remove previous files
   await dirCleanup();
 
