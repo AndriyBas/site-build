@@ -8,12 +8,15 @@ inputs:
   redirects:
     description: '_redirect settings'
     required: false
+    type: string
   headers:
     description: '_header settings'
     required: false
+    type: string
   robots:
     description: 'robots.txt settings'
     required: false
+    type: string
 runs:
   using: 'node16'
   main: 'index.js'
