@@ -69,10 +69,10 @@ async function buildSite(config) {
   console.log("On the target host: ", targetHost);
 
   console.log(
-    `Action inputs:\n• redirects: \n${actionsCore.getInput("redirects")}`
+    `\nAction inputs:\n👉 REDIRECTS: \n${actionsCore.getInput("redirects")}`
   );
-  console.log(`• headers: \n${actionsCore.getInput("headers")}`);
-  console.log(`• robots: \n${actionsCore.getInput("robots")}`);
+  console.log(`\n🐼 HEADERS: \n${actionsCore.getInput("headers")}`);
+  console.log(`\n🤖 ROBOTS: \n${actionsCore.getInput("robots")}`);
 
   // create dir, remove previous files
   await dirCleanup();
@@ -81,7 +81,7 @@ async function buildSite(config) {
 
   // parse CSS
   const cssUrl = getCSSUrl(indexPage);
-  console.log("CSS url: ", cssUrl);
+  console.log("\nCSS url: ", cssUrl);
   let cssPage = await fetchPage(cssUrl);
   // hide the badge
   cssPage += " .w-webflow-badge{display: none !important;}";
@@ -158,7 +158,7 @@ async function buildSite(config) {
   }
   sitemap = sitemap.replaceAll(site, targetHost); // replace any dev version with targetHost where present
   await ghWriteFile("sitemap.xml", sitemap);
-  console.log("Total pages: ", pages.length);
+  console.log("\nTotal pages: ", pages.length);
   console.log("Pages: ", pages);
 
   const allPages = await Promise.all(
@@ -184,7 +184,7 @@ async function main() {
 
 main()
   .then(() => {
-    console.log("Finished parsing successfully! 🙌");
+    console.log("\nFinished parsing successfully! 🙌");
   })
   .catch((error) => {
     console.error(error);
