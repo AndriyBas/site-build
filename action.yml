@@ -4,7 +4,16 @@ author: 'Author'
 branding:
   icon: 'download-cloud'
   color: 'gray-dark'
-
+inputs:
+  redirects:
+    description: '_redirect settings'
+    required: false
+  headers:
+    description: '_header settings'
+    required: false
+  robots:
+    description: 'robots.txt settings'
+    required: false
 runs:
   using: 'node16'
   main: 'index.js'
