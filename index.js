@@ -33,7 +33,9 @@ const CONTENT_DIR_NAME = "content";
 const SITE_PROXY = "https://site-proxy-3.herokuapp.com"; // NOTE: NO "/" at the end
 
 // write to current directory
-process.env["GITHUB_WORKSPACE"] = process.cwd();
+if (!process.env["GITHUB_WORKSPACE"]) {
+  process.env["GITHUB_WORKSPACE"] = process.cwd();
+}
 
 class RetryError extends Error {
   constructor() {
@@ -257,19 +259,23 @@ async function getSinglePage(site, path, cssPage, jsPage, devHost, targetHost) {
 }
 
 async function fetchPage(url, nullFor404 = false) {
-  return await retry(async () => {
-    // const response = await fetch(url);
-    const response = await retry(() => fetch(url), RETRY_COUNT, Error); // retry any fetch error
+  return await retry(
+    async () => {
+      // const response = await fetch(url);
+      const response = await retry(() => fetch(url), RETRY_COUNT, Error); // retry any fetch error
 
-    if (!response.ok) {
-      if (nullFor404 && response.status === 404) return null;
-      throw new RetryError(`${response.status}: ${response.statusText}`);
-    }
+      if (!response.ok) {
+        if (nullFor404 && response.status === 404) return null;
+        throw new RetryError(`${response.status}: ${response.statusText}`);
+      }
 
-    const body = await response.text();
+      const body = await response.text();
 
-    return body;
-  }, RETRY_COUNT, RetryError);
+      return body;
+    },
+    RETRY_COUNT,
+    RetryError
+  );
 }
 
 function getCSSUrl(index) {
