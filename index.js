@@ -68,12 +68,11 @@ async function buildSite(config) {
   console.log("Building the website: ", site);
   console.log("On the target host: ", targetHost);
 
-  let inRedirects = actionsCore.getInput('redirects');
-  let inHeaders = actionsCore.getInput('headers');
-  let inRobots = actionsCore.getInput('robots');
-  console.log('inRedirects: ', inRedirects);
-  console.log('inHeaders: ', inHeaders);
-  console.log('inRobots: ', inRobots);
+  console.log(
+    `Action inputs:\n• redirects: \n${actionsCore.getInput("redirects")}`
+  );
+  console.log(`• headers: \n${actionsCore.getInput("headers")}`);
+  console.log(`• robots: \n${actionsCore.getInput("robots")}`);
 
   // create dir, remove previous files
   await dirCleanup();
@@ -100,22 +99,23 @@ async function buildSite(config) {
   let jqueryPage = await fetchPage(jqueryUrl);
   await ghWriteFile(JQUERY_FILE_NAME, jqueryPage);
 
-  // apply 'robots.txt' from config, or get from {site}/robots.txt (if available)
-  if (config.robotsTxt) {
-    await ghWriteFile("robots.txt", config.robotsTxt);
-  } else {
-    const robots = await fetchPage(`${site}/robots.txt`, true);
-    if (robots) await ghWriteFile("robots.txt", robots);
+  // apply 'robots.txt' from input, or from config, or get from {site}/robots.txt (if available)
+  let robots = actionsCore.getInput("robots") || config.robotsTxt;
+  if (!robots) {
+    robots = await fetchPage(`${site}/robots.txt`, true);
   }
+  if (robots) await ghWriteFile("robots.txt", robots);
 
   // add Cloudflare _redirects (if configured). Docs - https://developers.cloudflare.com/pages/platform/redirects/
-  if (config.redirects) {
-    await ghWriteFile("_redirects", config.redirects);
+  const redirects = actionsCore.getInput("redirects") || config.redirects;
+  if (redirects) {
+    await ghWriteFile("_redirects", redirects);
   }
 
   // add Cloudflare _headers (if configured). Docs - https://developers.cloudflare.com/pages/platform/headers/
-  if (config.headers) {
-    await ghWriteFile("_headers", config.headers);
+  const headers = actionsCore.getInput("headers") || config.headers;
+  if (headers) {
+    await ghWriteFile("_headers", headers);
   }
 
   // parse HTML pages
