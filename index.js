@@ -66,6 +66,7 @@ async function buildSite(config) {
   const site = config.site.replace(/\/$/i, ""); // remove the "/" at the end (if any)
   const targetHost = config.targetHost.replace(/\/$/i, ""); // remove the "/" at the end (if any)
   console.log("Building the website: ", site);
+  console.log("On the target host: ", targetHost);
 
   // create dir, remove previous files
   await dirCleanup();
@@ -88,7 +89,7 @@ async function buildSite(config) {
 
   // parse Jquery lib
   const jqueryUrl = getJqueryUrl(indexPage);
-  console.log("Jquery url: ", jqueryUrl);
+  console.log("JQuery url: ", jqueryUrl);
   let jqueryPage = await fetchPage(jqueryUrl);
   await ghWriteFile(JQUERY_FILE_NAME, jqueryPage);
 
