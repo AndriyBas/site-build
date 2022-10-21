@@ -10,6 +10,7 @@ const RETRY_DELAY = 5 * 1000; // 5 sec
 
 const CONFIG_FILE_NAME = "wfconfig.yml";
 
+// TODO: refactor to use \w* instaed of [ \t\n]{0,}
 const CSS_REGEX =
   /<link[ \t\n]{1,}href[ \t]{0,}=[ \t]{0,}"(https?:\/\/[0-9a-zA-Z\-\.\_\~]*(?:webflow\.com|website-files\.com)\/[^><]*\.css)"[ \t\n]{0,}.*?\/>/is;
 const CSS_FILE_NAME = "style.css";
@@ -128,6 +129,12 @@ async function buildSite(config) {
     targetHost
   );
   await ghWriteFile("index.html", indexCode);
+
+  // TODO: get rid of it
+  // const indexWithImg = await processImages(indexCode);
+  // await ghWriteFile("index_img.html", indexWithImg);
+
+  // return;
 
   // all pages that will fetch
   let pages = [];
@@ -330,6 +337,99 @@ function generateProxyCode(devHost, targetHost) {
       return resp;
   };
   </script>`;
+}
+
+async function processImages(html) {
+  await enssurePathExists("assets/img");
+
+  let newHtml = html;
+
+  // match all <img /> first
+  let matches = html.matchAll(
+    /<img\s[^>]*?src\s*=\s*['\"]([^'\"]*?)['\"][^>]*?\/>/gi
+  ); // TODO: needs /gis
+  let i = 0;
+  for (m of matches) {
+    console.log("matches:", m[1]);
+
+    const imgTag = m[0];
+    let newImgTag = m[0];
+    let allLinks = imgTag.matchAll(
+      /https?:\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])/gis
+    );
+    for (l of allLinks) {
+      console.log("link: ", l[0]);
+      const imgUrl = l[0];
+      let img = new RegExp(/\/([^\/]*)$/gi).exec(imgUrl)[1];
+
+      let source = await retry(
+        async () => {
+          // const response = await fetch(url);
+          const response = await retry(() => fetch(imgUrl), RETRY_COUNT, Error); // retry any fetch error
+
+          if (!response.ok) {
+            throw new RetryError(`${response.status}: ${response.statusText}`);
+          }
+
+          const body = await response.buffer();
+
+          return body;
+        },
+        RETRY_COUNT,
+        RetryError
+      );
+      // console.log('Source: ', source);
+
+      await ghWriteFile(`assets/${img}`, source);
+
+      newImgTag = newImgTag.replace(imgUrl, `./assets/${img}`);
+    }
+
+    newHtml = newHtml.replace(imgTag, newImgTag);
+
+    i++;
+    if (i >= 5) break;
+  }
+
+  return newHtml;
+}
+
+async function processImages2(html) {
+  // get all links from the Home page
+  const dom = new JSDOM(html);
+  const doc = dom.window.document;
+  const allImg = doc.querySelectorAll("img");
+
+  await enssurePathExists("assets/img");
+
+  for (let i = 0; i < 5; i++) {
+    let img = new RegExp(/\/([^\/]*)$/gi).exec(allImg[i].src)[1];
+    console.log("img: ", img);
+    let imgUrl = allImg[i].src;
+    console.log("imgUrl: ", imgUrl);
+
+    let source = await retry(
+      async () => {
+        // const response = await fetch(url);
+        const response = await retry(() => fetch(imgUrl), RETRY_COUNT, Error); // retry any fetch error
+
+        if (!response.ok) {
+          throw new RetryError(`${response.status}: ${response.statusText}`);
+        }
+
+        const body = await response.buffer();
+
+        return body;
+      },
+      RETRY_COUNT,
+      RetryError
+    );
+    // console.log('Source: ', source);
+
+    await ghWriteFile(`assets/${img}`, source);
+  }
+
+  return html;
 }
 
 async function purgeAndEmbedHTML(
