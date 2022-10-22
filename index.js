@@ -37,6 +37,12 @@ const jQueryReplaceString = (relPath) => {
 const CONTENT_DIR_NAME = "content";
 const ASSETS_DIR_NAME = "assets";
 
+const ATTR = {
+  skipSitemap: "data-sb-skip-sitemap",
+  skipFetch: "data-sb-skip-fetch",
+  processImg: "data-sb-process-img",
+};
+
 const SITE_PROXY = "https://site-proxy-3.herokuapp.com"; // NOTE: NO "/" at the end
 
 // set to track downloaded images and not re-fetch them
@@ -144,14 +150,14 @@ async function buildSite(config) {
     console.log(
       `🤷‍♂️ Sitemap not found at ${site}/sitemap.xml. Will parse Home page and generate own Sitemap.` +
         " Add links <a href='/relative/path' style='display:none;'></a> on the Home page to fetch these pages and add them to sitemap." +
-        " Add 'data-skip-sitemap' attribute to <a> to NOT add them to sitemap.xml."
+        ` Add '${ATTR.skipSitemap}' attribute to <a> to NOT add them to sitemap.xml.`
     );
 
     // get all links from the Home page
     const sitemapLinks = getLinksFromPage(
       indexCode,
       targetHost,
-      "data-skip-sitemap"
+      ATTR.skipSitemap
     );
     const fetchLinks = getLinksFromPage(indexCode, targetHost);
 
@@ -160,7 +166,7 @@ async function buildSite(config) {
   } else {
     // get pages from Sitemap
     pages = getPagesFromSitemap(sitemap);
-    const allLinks = getLinksFromPage(indexCode, targetHost, "data-skip-fetch");
+    const allLinks = getLinksFromPage(indexCode, targetHost, ATTR.skipFetch);
     pages = Array.from(new Set([...pages, ...allLinks]));
   }
   sitemap = sitemap.replaceAll(site, targetHost); // replace any dev version with targetHost where present
@@ -386,7 +392,13 @@ async function processImages(path, html) {
 
   // match all <img /> first
   const imgMatches = html.matchAll(
-    new RegExp(/<img\s[^>]*?src\s*=\s*['\"]([^'\"]*?)['\"][^>]*?\/>/, "gis")
+    new RegExp(
+      // /<img\s[^>]*?src\s*=\s*['\"]([^'\"]*?)['\"][^>]*?data-sb-img-process[^>]*?\/>/
+      // `<img\\s[^>]*?src\\s*=\\s*['\"]([^'\"]*?)['\"][^>]*?${ATTR.processImg}[^>]*?\\/>`,
+      // /<img\s[^>]*?data-sb-img-process[^>]*?\/>/
+      `<img\\s[^>]*?${ATTR.processImg}[^>]*?\\/>`,
+      "gis"
+    )
   );
   const relPath = getRelativePath(path);
   for (imgMatch of imgMatches) {
