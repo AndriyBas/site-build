@@ -405,7 +405,7 @@ async function processImages(path, html) {
     // console.log("  🖼  img tag:", imgMatch[0]);
 
     const imgTag = imgMatch[0];
-    let newImgTag = imgTag;
+    // let newImgTag = imgTag;
     // match all resource links that end with ".ext"
     const allLinks = imgTag.matchAll(
       /https?:\/\/([\w-]+(?:(?:\.[\w-]+)+))([\w.,@?^=%&:\/~+#\-()\[\]!$*;{}\|]*\.[\w]+)/gis
@@ -425,14 +425,14 @@ async function processImages(path, html) {
         await ghWriteFile(imgFilePath, imgSource);
       }
 
-      // replace the image link
-      newImgTag = newImgTag.replace(imgUrl, `${relPath}${imgFilePath}`);
+      // replace the image link in the whole page
+      newHtml = newHtml.replace(imgUrl, `${relPath}${imgFilePath}`);
 
       PROCESSED_IMAGES.add(imgUrl);
     }
 
     // replace the whole <img /> tag
-    newHtml = newHtml.replace(imgTag, newImgTag);
+    // newHtml = newHtml.replace(imgTag, newImgTag);
   }
 
   return newHtml;
