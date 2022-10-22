@@ -48,6 +48,7 @@ const ATTR = {
 
 const SITE_PROXY = "https://site-proxy-3.herokuapp.com"; // NOTE: NO "/" at the end
 
+// TODO: consider replacing images everywhere, not only on the current page
 // set to track downloaded images and not re-fetch them
 const PROCESSED_IMAGES = new Set();
 
