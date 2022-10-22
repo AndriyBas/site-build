@@ -413,7 +413,8 @@ async function processImages(path, html) {
     for (link of allLinks) {
       const imgUrl = link[0];
       // get the path after the last '/'
-      const imgPath = new RegExp(/\/([^\/]*)$/).exec(imgUrl)[1];
+      let imgPath = new RegExp(/\/([^\/]*)$/).exec(imgUrl)[1];
+      imgPath = imgPath.replace(/[^\w\.-]/g, ""); // replce all non-alphanumeric characters
       const imgFilePath = `${ASSETS_DIR_NAME}/${imgPath}`;
 
       if (!PROCESSED_IMAGES.has(link)) {
