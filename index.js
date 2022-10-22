@@ -418,7 +418,7 @@ async function processImages(path, html) {
       const imgFilePath = `${ASSETS_DIR_NAME}/${imgPath}`;
 
       if (!PROCESSED_IMAGES.has(link)) {
-        // console.log("   - img url: ", link[0]);
+        // console.log("   - img url: ", imgUrl);
         // download image
         const imgSource = await fetchImage(imgUrl);
         // write image to file
@@ -426,7 +426,7 @@ async function processImages(path, html) {
       }
 
       // replace the image link in the whole page
-      newHtml = newHtml.replace(imgUrl, `${relPath}${imgFilePath}`);
+      newHtml = newHtml.replaceAll(imgUrl, `${relPath}${imgFilePath}`);
 
       PROCESSED_IMAGES.add(imgUrl);
     }
