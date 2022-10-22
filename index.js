@@ -10,23 +10,26 @@ const RETRY_DELAY = 5 * 1000; // 5 sec
 
 const CONFIG_FILE_NAME = "wfconfig.yml";
 
-// TODO: refactor to use \w* instaed of [ \t\n]{0,}
-const CSS_REGEX =
-  /<link[ \t\n]{1,}href[ \t]{0,}=[ \t]{0,}"(https?:\/\/[0-9a-zA-Z\-\.\_\~]*(?:webflow\.com|website-files\.com)\/[^><]*\.css)"[ \t\n]{0,}.*?\/>/is;
+const CSS_REGEX = new RegExp(
+  /<link\s+[^>]*?href\s*=\s*['\"](https?:\/\/[\w\-\.\~]*(?:webflow\.com|website-files\.com)\/[^'\"]*?\.css[^'\"]*?)['\"].*?\/>/,
+  "is"
+);
 const CSS_FILE_NAME = "style.css";
 const cssReplaceString = (relPath) => {
   return `<link href="${relPath}${CSS_FILE_NAME}" rel="stylesheet" type="text/css"/>`;
 };
 
-const JS_REGEX =
-  /<script[ \t\n]{1,}src[ \t]{0,}=[ \t]{0,}"(https?:\/\/[0-9a-zA-Z\-\.\_\~]*(?:webflow\.com|website-files\.com)\/[^><]*\.js)"[ \t\n]{0,}.*?><\/script>/is;
+const JS_REGEX = new RegExp(
+  /<script\s+[^>]*?src\s*=\s*['\"](https?:\/\/[\w\-\.\~]*?(?:webflow\.com|website-files\.com)\/[^'\"]*?\.js[^'\"]*?)['\"].*?><\/script>/,
+  "is"
+);
 const JS_FILE_NAME = "script.js";
 const jsReplaceString = (relPath) => {
   return `<script src="${relPath}${JS_FILE_NAME}" type="text/javascript"></script>`;
 };
 
 const JQUERY_REGEX = new RegExp(
-  /<script[ \t\n]{1,}src[ \t]{0,}=[ \t]{0,}"(https:\/\/[0-9a-zA-Z\-\.\_\~]*cloudfront\.net\/js\/jquery[^><"]*)"[ \t\n]{0,}.*?><\/script>/,
+  /<script\s+[^>]*?src\s*=\s*['\"](https:\/\/[\w\-\.\~]*?cloudfront\.net\/js\/jquery[^'\"]*?)['\"].*?><\/script>/,
   "is"
 );
 const JQUERY_FILE_NAME = "jquery.js";
@@ -94,7 +97,7 @@ async function buildSite(config) {
 
   // parse CSS
   const cssUrl = getCSSUrl(indexPage);
-  console.log("CSS url: ", cssUrl);
+  console.log("🎨 CSS url: ", cssUrl);
   let cssPage = await fetchPage(cssUrl);
   // hide the badge
   cssPage += " .w-webflow-badge{display: none !important;}";
@@ -102,13 +105,13 @@ async function buildSite(config) {
 
   // parse JS
   const jsUrl = getJSUrl(indexPage);
-  console.log("JS url: ", jsUrl);
+  console.log("⚙️ JS url: ", jsUrl);
   let jsPage = await fetchPage(jsUrl);
   await ghWriteFile(JS_FILE_NAME, jsPage);
 
   // parse Jquery lib
   const jqueryUrl = getJqueryUrl(indexPage);
-  console.log("JQuery url: ", jqueryUrl);
+  console.log("🧱 JQuery url: ", jqueryUrl);
   let jqueryPage = await fetchPage(jqueryUrl);
   await ghWriteFile(JQUERY_FILE_NAME, jqueryPage);
 
@@ -204,7 +207,6 @@ async function buildSite(config) {
 async function main() {
   const config = await init();
 
-  // TODO: add proper retryies and cleanup for parsing sites
   await buildSite(config);
 
   return config;
@@ -408,7 +410,7 @@ async function processImages(path, html) {
     // let newImgTag = imgTag;
     // match all resource links that end with ".ext"
     const allLinks = imgTag.matchAll(
-      /https?:\/\/([\w-]+(?:(?:\.[\w-]+)+))([\w.,@?^=%&:\/~+#\-()\[\]!$*;{}\|]*\.[\w]+)/gis
+      /https?:\/\/([\w\-\~]+(?:(?:\.[\w\-\~]+)+))([\w.,@?^=%&:\/~+#\-()\[\]!$*;{}\|]*\.[\w]+)/gis
     );
     for (link of allLinks) {
       const imgUrl = link[0];
