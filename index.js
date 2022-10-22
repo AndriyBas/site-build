@@ -25,16 +25,22 @@ const jsReplaceString = (relPath) => {
   return `<script src="${relPath}${JS_FILE_NAME}" type="text/javascript"></script>`;
 };
 
-const JQUERY_REGEX =
-  /<script[ \t\n]{1,}src[ \t]{0,}=[ \t]{0,}"(https:\/\/[0-9a-zA-Z\-\.\_\~]*cloudfront\.net\/js\/jquery[^><"]*)"[ \t\n]{0,}.*?><\/script>/i;
+const JQUERY_REGEX = new RegExp(
+  /<script[ \t\n]{1,}src[ \t]{0,}=[ \t]{0,}"(https:\/\/[0-9a-zA-Z\-\.\_\~]*cloudfront\.net\/js\/jquery[^><"]*)"[ \t\n]{0,}.*?><\/script>/,
+  "is"
+);
 const JQUERY_FILE_NAME = "jquery.js";
 const jQueryReplaceString = (relPath) => {
   return `<script src="${relPath}${JQUERY_FILE_NAME}" type="text/javascript"></script>`;
 };
 
 const CONTENT_DIR_NAME = "content";
+const ASSETS_DIR_NAME = "assets";
 
 const SITE_PROXY = "https://site-proxy-3.herokuapp.com"; // NOTE: NO "/" at the end
+
+// set to track downloaded images and not re-fetch them
+const PROCESSED_IMAGES = new Set();
 
 // write to current directory
 if (!process.env["GITHUB_WORKSPACE"]) {
@@ -42,8 +48,8 @@ if (!process.env["GITHUB_WORKSPACE"]) {
 }
 
 class RetryError extends Error {
-  constructor() {
-    super("Retrying function...");
+  constructor(message) {
+    super(message);
     this.name = "RetryError";
   }
 }
@@ -130,12 +136,6 @@ async function buildSite(config) {
   );
   await ghWriteFile("index.html", indexCode);
 
-  // TODO: get rid of it
-  // const indexWithImg = await processImages(indexCode);
-  // await ghWriteFile("index_img.html", indexWithImg);
-
-  // return;
-
   // all pages that will fetch
   let pages = [];
 
@@ -168,6 +168,18 @@ async function buildSite(config) {
   console.log("Total pages: ", pages.length);
   console.log("Pages: ", pages);
 
+  // for (pagePath of pages) {
+  //   const p = await getSinglePage(
+  //     site,
+  //     pagePath,
+  //     cssPage,
+  //     jsPage,
+  //     site,
+  //     targetHost
+  //   );
+  //   await enssurePathExists(p.path);
+  //   await ghWriteFile(`${p.path}.html`, p.html);
+  // }
   const allPages = await Promise.all(
     pages.map((pagePath) =>
       getSinglePage(site, pagePath, cssPage, jsPage, site, targetHost)
@@ -178,6 +190,9 @@ async function buildSite(config) {
     await enssurePathExists(p.path);
     await ghWriteFile(`${p.path}.html`, p.html);
   }
+
+  console.log("🖼 Total processed images: ", PROCESSED_IMAGES.size);
+  // console.log("Processed images: ", PROCESSED_IMAGES);
 }
 
 async function main() {
@@ -221,6 +236,7 @@ async function dirCleanup() {
     force: true,
   });
   await fs.mkdir(`${CONTENT_DIR_NAME}`);
+  await fs.mkdir(`${CONTENT_DIR_NAME}/${ASSETS_DIR_NAME}`);
 }
 
 function getPagesFromSitemap(sitemap) {
@@ -284,10 +300,36 @@ async function fetchPage(url, nullFor404 = false) {
 
       if (!response.ok) {
         if (nullFor404 && response.status === 404) return null;
-        throw new RetryError(`${response.status}: ${response.statusText}`);
+        const err = new RetryError(
+          `${response.status}: Failed fetching page ${url} (${response.statusText})`
+        );
+        console.error(err);
+        throw err;
       }
 
       const body = await response.text();
+
+      return body;
+    },
+    RETRY_COUNT,
+    RetryError
+  );
+}
+
+async function fetchImage(imgUrl) {
+  return await retry(
+    async () => {
+      const response = await retry(() => fetch(imgUrl), RETRY_COUNT, Error); // retry any fetch error
+
+      if (!response.ok) {
+        const err = new RetryError(
+          `${response.status}: Failed fetching resource ${imgUrl} (${response.statusText})`
+        );
+        console.error(err);
+        throw err;
+      }
+
+      const body = await response.buffer();
 
       return body;
     },
@@ -339,97 +381,48 @@ function generateProxyCode(devHost, targetHost) {
   </script>`;
 }
 
-async function processImages(html) {
-  await enssurePathExists("assets/img");
-
+async function processImages(path, html) {
   let newHtml = html;
 
   // match all <img /> first
-  let matches = html.matchAll(
-    /<img\s[^>]*?src\s*=\s*['\"]([^'\"]*?)['\"][^>]*?\/>/gi
-  ); // TODO: needs /gis
-  let i = 0;
-  for (m of matches) {
-    console.log("matches:", m[1]);
+  const imgMatches = html.matchAll(
+    new RegExp(/<img\s[^>]*?src\s*=\s*['\"]([^'\"]*?)['\"][^>]*?\/>/, "gis")
+  );
+  const relPath = getRelativePath(path);
+  for (imgMatch of imgMatches) {
+    // console.log("  🖼  img tag:", imgMatch[0]);
 
-    const imgTag = m[0];
-    let newImgTag = m[0];
-    let allLinks = imgTag.matchAll(
-      /https?:\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])/gis
+    const imgTag = imgMatch[0];
+    let newImgTag = imgTag;
+    // match all resource links that end with ".ext"
+    const allLinks = imgTag.matchAll(
+      /https?:\/\/([\w-]+(?:(?:\.[\w-]+)+))([\w.,@?^=%&:\/~+#\-()\[\]!$*;{}\|]*\.[\w]+)/gis
     );
-    for (l of allLinks) {
-      console.log("link: ", l[0]);
-      const imgUrl = l[0];
-      let img = new RegExp(/\/([^\/]*)$/gi).exec(imgUrl)[1];
+    for (link of allLinks) {
+      const imgUrl = link[0];
+      // get the path after the last '/'
+      const imgPath = new RegExp(/\/([^\/]*)$/).exec(imgUrl)[1];
+      const imgFilePath = `${ASSETS_DIR_NAME}/${imgPath}`;
 
-      let source = await retry(
-        async () => {
-          // const response = await fetch(url);
-          const response = await retry(() => fetch(imgUrl), RETRY_COUNT, Error); // retry any fetch error
+      if (!PROCESSED_IMAGES.has(link)) {
+        // console.log("   - img url: ", link[0]);
+        // download image
+        const imgSource = await fetchImage(imgUrl);
+        // write image to file
+        await ghWriteFile(imgFilePath, imgSource);
+      }
 
-          if (!response.ok) {
-            throw new RetryError(`${response.status}: ${response.statusText}`);
-          }
+      // replace the image link
+      newImgTag = newImgTag.replace(imgUrl, `${relPath}${imgFilePath}`);
 
-          const body = await response.buffer();
-
-          return body;
-        },
-        RETRY_COUNT,
-        RetryError
-      );
-      // console.log('Source: ', source);
-
-      await ghWriteFile(`assets/${img}`, source);
-
-      newImgTag = newImgTag.replace(imgUrl, `./assets/${img}`);
+      PROCESSED_IMAGES.add(imgUrl);
     }
 
+    // replace the whole <img /> tag
     newHtml = newHtml.replace(imgTag, newImgTag);
-
-    i++;
-    if (i >= 5) break;
   }
 
   return newHtml;
-}
-
-async function processImages2(html) {
-  // get all links from the Home page
-  const dom = new JSDOM(html);
-  const doc = dom.window.document;
-  const allImg = doc.querySelectorAll("img");
-
-  await enssurePathExists("assets/img");
-
-  for (let i = 0; i < 5; i++) {
-    let img = new RegExp(/\/([^\/]*)$/gi).exec(allImg[i].src)[1];
-    console.log("img: ", img);
-    let imgUrl = allImg[i].src;
-    console.log("imgUrl: ", imgUrl);
-
-    let source = await retry(
-      async () => {
-        // const response = await fetch(url);
-        const response = await retry(() => fetch(imgUrl), RETRY_COUNT, Error); // retry any fetch error
-
-        if (!response.ok) {
-          throw new RetryError(`${response.status}: ${response.statusText}`);
-        }
-
-        const body = await response.buffer();
-
-        return body;
-      },
-      RETRY_COUNT,
-      RetryError
-    );
-    // console.log('Source: ', source);
-
-    await ghWriteFile(`assets/${img}`, source);
-  }
-
-  return html;
 }
 
 async function purgeAndEmbedHTML(
@@ -440,12 +433,13 @@ async function purgeAndEmbedHTML(
   devHost,
   targetHost
 ) {
+  // console.log("🔪 purgeAndEmbedHTML: ", path);
   // let text = prettier.format(html, { parser: "html" });
-  let text = htmlCode;
+  let newHtml = await processImages(path, htmlCode);
   const purgeCSSResults = await new PurgeCSS().purge({
     content: [
       {
-        raw: htmlCode,
+        raw: newHtml,
         extension: "html",
       },
       {
@@ -460,26 +454,29 @@ async function purgeAndEmbedHTML(
     ],
   });
   // insert newline after the Timestamp, to have cleaner Git history
-  text = text.replace(/<html /im, "\n<html ");
+  newHtml = newHtml.replace(/<html /im, "\n<html ");
 
   const proxyCode = generateProxyCode(devHost, targetHost);
   // replace the CSS
-  text = text.replace(
+  newHtml = newHtml.replace(
     CSS_REGEX,
     `<style>${purgeCSSResults[0].css}</style>${proxyCode}`
   );
 
   // no minimization
-  // text = text.replace(CSS_REGEX, `<style>${cssCode}</style>`);
+  // newHtml = newHtml.replace(CSS_REGEX, `<style>${cssCode}</style>`);
 
   // use as separate file
-  // text = text.replace(CSS_REGEX, cssReplaceString(getRelativePath(path)));
+  // newHtml = newHtml.replace(CSS_REGEX, cssReplaceString(getRelativePath(path)));
 
   // replace the JS
-  text = text.replace(JS_REGEX, jsReplaceString(getRelativePath(path)));
+  newHtml = newHtml.replace(JS_REGEX, jsReplaceString(getRelativePath(path)));
   // replace the JQuery
-  text = text.replace(JQUERY_REGEX, jQueryReplaceString(getRelativePath(path)));
-  return text;
+  newHtml = newHtml.replace(
+    JQUERY_REGEX,
+    jQueryReplaceString(getRelativePath(path))
+  );
+  return newHtml;
 }
 
 function generateSitemap(targetHost, pages) {
