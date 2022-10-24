@@ -417,8 +417,10 @@ async function processImages(path, html) {
       const imgUrl = link[0];
       // get the path after the last '/'
       let imgPath = new RegExp(/\/([^\/]*)$/).exec(imgUrl)[1];
-      imgPath = imgPath.replace(/[^\w\.-]/g, ""); // replce all non-alphanumeric characters
-      const imgFilePath = `${ASSETS_DIR_NAME}/${imgPath}`;
+      // TODO: fix img decode - incode
+      // imgPath = imgPath.replace(/[^\w\.-]/g, ""); // replce all non-alphanumeric characters
+      // imgPath = decodeURI(imgPath);
+      const imgFilePath = `${ASSETS_DIR_NAME}/${decodeURI(imgPath)}`;
 
       if (!PROCESSED_IMAGES.has(link)) {
         // console.log("   - img url: ", imgUrl);
