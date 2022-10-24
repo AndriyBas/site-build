@@ -430,7 +430,10 @@ async function processImages(path, html) {
       }
 
       // replace the image link in the whole page
-      newHtml = newHtml.replaceAll(imgUrl, `${relPath}${imgPath}`);
+      newHtml = newHtml.replaceAll(
+        imgUrl,
+        `${relPath}${ASSETS_DIR_NAME}/${imgPath}`
+      );
 
       PROCESSED_IMAGES.add(imgUrl);
     }
