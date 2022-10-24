@@ -417,21 +417,20 @@ async function processImages(path, html) {
       const imgUrl = link[0];
       // get the path after the last '/'
       let imgPath = new RegExp(/\/([^\/]*)$/).exec(imgUrl)[1];
-      // TODO: fix img decode - incode
+      // option with replacing all special symbols, but "decodeURI" preserves the original file name
       // imgPath = imgPath.replace(/[^\w\.-]/g, ""); // replce all non-alphanumeric characters
-      // imgPath = decodeURI(imgPath);
-      const imgFilePath = `${ASSETS_DIR_NAME}/${decodeURI(imgPath)}`;
 
       if (!PROCESSED_IMAGES.has(link)) {
         // console.log("   - img url: ", imgUrl);
         // download image
         const imgSource = await fetchImage(imgUrl);
         // write image to file
+        const imgFilePath = `${ASSETS_DIR_NAME}/${decodeURI(imgPath)}`;
         await ghWriteFile(imgFilePath, imgSource);
       }
 
       // replace the image link in the whole page
-      newHtml = newHtml.replaceAll(imgUrl, `${relPath}${imgFilePath}`);
+      newHtml = newHtml.replaceAll(imgUrl, `${relPath}${imgPath}`);
 
       PROCESSED_IMAGES.add(imgUrl);
     }
