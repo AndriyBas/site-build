@@ -445,7 +445,7 @@ async function processImages(path, html) {
         // download image
         const imgSource = await fetchImage(imgUrl);
         // write image to file
-        const imgFilePath = `${ASSETS_DIR_NAME}/${decodeURI(imgPath)}`;
+        const imgFilePath = `${ASSETS_DIR_NAME}/${decodeURIComponent(imgPath)}`;
         await ghWriteFile(imgFilePath, imgSource);
       }
 
