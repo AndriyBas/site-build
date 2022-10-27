@@ -240,34 +240,6 @@ async function ghWriteFile(fileName, content) {
   );
 }
 
-async function dirCleanup() {
-  const contentDir = `${process.env.GITHUB_WORKSPACE}/${CONTENT_DIR_NAME}`;
-  // create content dir if does not exist
-  if (!(await pathExists(""))) {
-    await fs.mkdir(contentDir);
-  }
-  const currentFiles = await fs.readdir(contentDir);
-  currentFiles.forEach(async (fileName) => {
-    // delete all files except STATIC_ASSETS_DIR_NAME folder
-    if (STATIC_ASSETS_DIR_NAME != fileName) {
-      await fs.rm(`${contentDir}/${fileName}`, {
-        recursive: true,
-        force: true,
-      });
-    }
-  });
-  if (!(await pathExists(`${ASSETS_DIR_NAME}`))) {
-    await fs.mkdir(`${contentDir}/${ASSETS_DIR_NAME}`);
-  }
-
-  // await fs.rm(`${process.env.GITHUB_WORKSPACE}/${CONTENT_DIR_NAME}`, {
-  //   recursive: true,
-  //   force: true,
-  // });
-  // await fs.mkdir(`${CONTENT_DIR_NAME}`);
-  // await fs.mkdir(`${CONTENT_DIR_NAME}/${ASSETS_DIR_NAME}`);
-}
-
 function getPagesFromSitemap(sitemap) {
   let pages = [
     ...sitemap.matchAll(/<loc>[ \t\n]{0,}([^>< \t\n]*)[ \t\n]{0,}<\/loc>/gis),
@@ -556,6 +528,34 @@ async function retry(
 // custom sleep, for Node on Actions
 function sleep(timeout) {
   return new Promise((resolve) => setTimeout(resolve, timeout));
+}
+
+async function dirCleanup() {
+  const contentDir = `${process.env.GITHUB_WORKSPACE}/${CONTENT_DIR_NAME}`;
+  // create content dir if does not exist
+  if (!(await pathExists(""))) {
+    await fs.mkdir(contentDir);
+  }
+  const currentFiles = await fs.readdir(contentDir);
+  currentFiles.forEach(async (fileName) => {
+    // delete all files except STATIC_ASSETS_DIR_NAME folder
+    if (STATIC_ASSETS_DIR_NAME != fileName) {
+      await fs.rm(`${contentDir}/${fileName}`, {
+        recursive: true,
+        force: true,
+      });
+    }
+  });
+  if (!(await pathExists(`${contentDir}/${ASSETS_DIR_NAME}`))) {
+    await fs.mkdir(`${contentDir}/${ASSETS_DIR_NAME}`);
+  }
+
+  // await fs.rm(`${process.env.GITHUB_WORKSPACE}/${CONTENT_DIR_NAME}`, {
+  //   recursive: true,
+  //   force: true,
+  // });
+  // await fs.mkdir(`${CONTENT_DIR_NAME}`);
+  // await fs.mkdir(`${CONTENT_DIR_NAME}/${ASSETS_DIR_NAME}`);
 }
 
 async function enssurePathExists(path) {
