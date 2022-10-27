@@ -66,7 +66,7 @@ class RetryError extends Error {
 }
 
 async function init() {
-  const configFile = await ghReadFile(CONFIG_FILE_NAME);
+  const configFile = await ghReadRootFile(CONFIG_FILE_NAME);
 
   const config = yaml.parse(configFile);
   if (!config.site) {
@@ -227,7 +227,7 @@ main()
 // Util functions
 // ============================================
 
-async function ghReadFile(fileName) {
+async function ghReadRootFile(fileName) {
   return await fs.readFile(`${process.env.GITHUB_WORKSPACE}/${fileName}`, {
     encoding: "utf8",
   });
@@ -537,7 +537,7 @@ async function dirCleanup() {
     await fs.mkdir(contentDir);
   }
   const currentFiles = await fs.readdir(contentDir);
-  currentFiles.forEach(async (fileName) => {
+  for (fileName of currentFiles) {
     // delete all files except STATIC_ASSETS_DIR_NAME folder
     if (STATIC_ASSETS_DIR_NAME != fileName) {
       await fs.rm(`${contentDir}/${fileName}`, {
@@ -545,10 +545,8 @@ async function dirCleanup() {
         force: true,
       });
     }
-  });
-  if (!(await pathExists(`${contentDir}/${ASSETS_DIR_NAME}`))) {
-    await fs.mkdir(`${contentDir}/${ASSETS_DIR_NAME}`);
   }
+  await enssurePathExists(`${ASSETS_DIR_NAME}/dumb`);
 
   // await fs.rm(`${process.env.GITHUB_WORKSPACE}/${CONTENT_DIR_NAME}`, {
   //   recursive: true,
