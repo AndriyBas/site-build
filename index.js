@@ -37,9 +37,9 @@ const jQueryReplaceString = (relPath) => {
   return `<script src="${relPath}${JQUERY_FILE_NAME}" type="text/javascript"></script>`;
 };
 
-const CONTENT_DIR_NAME = "content";
-const ASSETS_DIR_NAME = "assets";
-const STATIC_ASSETS_DIR_NAME = "sb_static";
+const CONTENT_DIR_NAME = "content"; // whole site content
+const ASSETS_DIR_NAME = "sb_assets"; // for dynamic fetched assets (images)
+const STATIC_ASSETS_DIR_NAME = "sb_static"; // for static assets that persist (not deleted)
 
 const ATTR = {
   skipSitemap: "data-sb-skip-sitemap",
