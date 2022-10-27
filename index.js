@@ -39,6 +39,7 @@ const jQueryReplaceString = (relPath) => {
 
 const CONTENT_DIR_NAME = "content";
 const ASSETS_DIR_NAME = "assets";
+const STATIC_ASSETS_DIR_NAME = "sb_static";
 
 const ATTR = {
   skipSitemap: "data-sb-skip-sitemap",
@@ -240,12 +241,31 @@ async function ghWriteFile(fileName, content) {
 }
 
 async function dirCleanup() {
-  await fs.rm(`${process.env.GITHUB_WORKSPACE}/${CONTENT_DIR_NAME}`, {
-    recursive: true,
-    force: true,
+  const contentDir = `${process.env.GITHUB_WORKSPACE}/${CONTENT_DIR_NAME}`;
+  // create content dir if does not exist
+  if (!(await pathExists(""))) {
+    await fs.mkdir(contentDir);
+  }
+  const currentFiles = await fs.readdir(contentDir);
+  currentFiles.forEach(async (fileName) => {
+    // delete all files except STATIC_ASSETS_DIR_NAME folder
+    if (STATIC_ASSETS_DIR_NAME != fileName) {
+      await fs.rm(`${contentDir}/${fileName}`, {
+        recursive: true,
+        force: true,
+      });
+    }
   });
-  await fs.mkdir(`${CONTENT_DIR_NAME}`);
-  await fs.mkdir(`${CONTENT_DIR_NAME}/${ASSETS_DIR_NAME}`);
+  if (!(await pathExists(`${ASSETS_DIR_NAME}`))) {
+    await fs.mkdir(`${contentDir}/${ASSETS_DIR_NAME}`);
+  }
+
+  // await fs.rm(`${process.env.GITHUB_WORKSPACE}/${CONTENT_DIR_NAME}`, {
+  //   recursive: true,
+  //   force: true,
+  // });
+  // await fs.mkdir(`${CONTENT_DIR_NAME}`);
+  // await fs.mkdir(`${CONTENT_DIR_NAME}/${ASSETS_DIR_NAME}`);
 }
 
 function getPagesFromSitemap(sitemap) {
