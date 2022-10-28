@@ -465,8 +465,12 @@ async function purgeAndEmbedHTML(
       },
     ],
   });
-  // insert newline after the Timestamp, to have cleaner Git history
-  newHtml = newHtml.replace(/<html /im, "\n<html ");
+  // insert newline and remove the Timestamp, to have cleaner Git history
+  // newHtml = newHtml.replace(/<html /, "\n<html ");
+  newHtml = newHtml.replace(
+    /^<!DOCTYPE html>\s*<!--\s*Last Published:.*?-->\s*<html /,
+    "<!DOCTYPE html>\n<html "
+  );
 
   const proxyCode = generateProxyCode(devHost, targetHost);
   // replace the CSS
