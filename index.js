@@ -382,7 +382,7 @@ function generateProxyCode(devHost, targetHost) {
   </script>`;
 }
 
-async function processImages(path, html) {
+async function processImages(path, html, targetHost) {
   let newHtml = html;
 
   // match all <img /> first
@@ -395,7 +395,7 @@ async function processImages(path, html) {
       "gis"
     )
   );
-  const relPath = getRelativePath(path);
+  // const relPath = getRelativePath(path);
   for (imgMatch of imgMatches) {
     // console.log("  🖼  img tag:", imgMatch[0]);
 
@@ -424,7 +424,7 @@ async function processImages(path, html) {
       // replace the image link in the whole page
       newHtml = newHtml.replaceAll(
         imgUrl,
-        `${relPath}${ASSETS_DIR_NAME}/${imgPath}`
+        `${targetHost}/${ASSETS_DIR_NAME}/${imgPath}`
       );
 
       PROCESSED_IMAGES.add(imgUrl);
@@ -447,7 +447,7 @@ async function purgeAndEmbedHTML(
 ) {
   // console.log("🔪 purgeAndEmbedHTML: ", path);
   // let text = prettier.format(html, { parser: "html" });
-  let newHtml = await processImages(path, htmlCode);
+  let newHtml = await processImages(path, htmlCode, targetHost);
   const purgeCSSResults = await new PurgeCSS().purge({
     content: [
       {
