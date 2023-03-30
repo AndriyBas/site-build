@@ -242,7 +242,7 @@ async function ghWriteFile(fileName, content) {
 
 function getPagesFromSitemap(sitemap) {
   let pages = [
-    ...sitemap.matchAll(/<loc>[ \t\n]{0,}([^>< \t\n]*)[ \t\n]{0,}<\/loc>/gis),
+    ...sitemap.matchAll(/<loc>\s*([^><\s]*)\s*<\/loc>/gis),
   ];
   pages = pages
     .map((p) => p[1])
