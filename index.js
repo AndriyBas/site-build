@@ -45,6 +45,8 @@ const ATTR = {
   skipSitemap: "data-sb-skip-sitemap",
   skipFetch: "data-sb-skip-fetch",
   processImg: "data-sb-process-img",
+  embedScript: "data-sb-embed-script",
+  resultScript: "data-sb-result-script",
 };
 
 const SITE_PROXY = "https://site-proxy-3.herokuapp.com"; // NOTE: NO "/" at the end
@@ -241,9 +243,7 @@ async function ghWriteFile(fileName, content) {
 }
 
 function getPagesFromSitemap(sitemap) {
-  let pages = [
-    ...sitemap.matchAll(/<loc>\s*([^><\s]*)\s*<\/loc>/gis),
-  ];
+  let pages = [...sitemap.matchAll(/<loc>\s*([^><\s]*)\s*<\/loc>/gis)];
   pages = pages
     .map((p) => p[1])
     // remove the host and the last "/"
@@ -437,6 +437,43 @@ async function processImages(path, html, targetHost) {
   return newHtml;
 }
 
+async function processScripts(html) {
+  let newHtml = html;
+
+  // match all <script> first with ATTR.embedScript
+  const scriptMatches = html.matchAll(
+    new RegExp(`<script\\s[^<]*?${ATTR.embedScript}[^<]*?<\\/script>`, "gis")
+  );
+  for (scriptMatch of scriptMatches) {
+    // console.log(" <>  scriptMatch tag:", scriptMatch[0]);
+
+    const scriptTag = scriptMatch[0];
+    // get the link
+    const srcLink = new RegExp(
+      /src\s*=\s*[\"\'](https?:\/\/[\w\-\~]+(?:(?:\.[\w\-\~]+)+)[\w.,@?^=%&:\/~+#\-()\[\]!$*;{}\|]*)[\"\']/,
+      "gis"
+    ).exec(scriptTag)[1];
+
+    // console.log(" <>  scriptMatch link:", srcLink);
+    if (srcLink) {
+      const scriptSource = await fetchPage(srcLink, true);
+      if (scriptSource) {
+      // see https://stackoverflow.com/questions/56148062/javascript-how-to-skip-in-replace-function
+      const sciptReplacedDollars = scriptSource.replace(/\$/g, '$$$$')
+      // console.log(" <>  scriptMatch scriptSource:", scriptSource);
+
+      // replace the image link in the whole page
+      newHtml = newHtml.replaceAll(
+        scriptTag,
+        `<script ${ATTR.resultScript}>${sciptReplacedDollars}</script>`
+      );
+      }
+    }
+  }
+
+  return newHtml;
+}
+
 async function purgeAndEmbedHTML(
   path,
   htmlCode,
@@ -492,6 +529,8 @@ async function purgeAndEmbedHTML(
     JQUERY_REGEX,
     jQueryReplaceString(getRelativePath(path))
   );
+  // embed scripts
+  newHtml = processScripts(newHtml);
   return newHtml;
 }
 
