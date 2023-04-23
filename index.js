@@ -154,11 +154,12 @@ async function buildSite(config) {
 
   let sitemap = await fetchPage(`${site}/sitemap.xml`, true);
   if (!sitemap) {
-    console.log(
+    const logSitemap =
       `🤷‍♂️ Sitemap not found at ${site}/sitemap.xml. Will parse Home page and generate own Sitemap.` +
-        " Add links <a href='/relative/path' style='display:none;'></a> on the Home page to fetch these pages and add them to sitemap." +
-        ` Add '${ATTR.skipSitemap}' attribute to <a> to NOT add them to sitemap.xml.`
-    );
+      " Add links <a href='/relative/path' style='display:none;'></a> on the Home page to fetch these pages and add them to sitemap." +
+      ` Add '${ATTR.skipSitemap}' attribute to <a> to NOT add them to sitemap.xml.`;
+    console.log(logSitemap);
+    actionsCore.info(logSitemap);
 
     // get all links from the Home page
     const sitemapLinks = getLinksFromPage(
@@ -178,8 +179,10 @@ async function buildSite(config) {
   }
   sitemap = sitemap.replaceAll(site, targetHost); // replace any dev version with targetHost where present
   await ghWriteFile("sitemap.xml", sitemap);
-  console.log("Total pages: ", pages.length);
+  console.log(`Total pages: ", ${pages.length}`);
+  actionsCore.info(`Total pages: ", ${pages.length}`);
   console.log("Pages: ", pages);
+  actionsCore.info(`Pages: ${JSON.stringify(pages)}`);
 
   // for (pagePath of pages) {
   //   const p = await getSinglePage(
@@ -204,7 +207,8 @@ async function buildSite(config) {
     await ghWriteFile(`${p.path}.html`, p.html);
   }
 
-  console.log("🖼 Total processed images: ", PROCESSED_IMAGES.size);
+  console.log(`🖼 Total processed images: ${PROCESSED_IMAGES.size}`);
+  actionsCore.info(`🖼 Total processed images: ${PROCESSED_IMAGES.size}`);
   // console.log("Processed images: ", PROCESSED_IMAGES);
 }
 
@@ -222,6 +226,7 @@ main()
   })
   .catch((error) => {
     console.error(error);
+    actionsCore.error(error);
     actionsCore.setFailed(error);
   });
 
@@ -458,15 +463,15 @@ async function processScripts(html) {
     if (srcLink) {
       const scriptSource = await fetchPage(srcLink, true);
       if (scriptSource) {
-      // see https://stackoverflow.com/questions/56148062/javascript-how-to-skip-in-replace-function
-      const sciptReplacedDollars = scriptSource.replace(/\$/g, '$$$$')
-      // console.log(" <>  scriptMatch scriptSource:", scriptSource);
+        // see https://stackoverflow.com/questions/56148062/javascript-how-to-skip-in-replace-function
+        const sciptReplacedDollars = scriptSource.replace(/\$/g, "$$$$");
+        // console.log(" <>  scriptMatch scriptSource:", scriptSource);
 
-      // replace the image link in the whole page
-      newHtml = newHtml.replaceAll(
-        scriptTag,
-        `<script ${ATTR.resultScript}>${sciptReplacedDollars}</script>`
-      );
+        // replace the image link in the whole page
+        newHtml = newHtml.replaceAll(
+          scriptTag,
+          `<script ${ATTR.resultScript}>${sciptReplacedDollars}</script>`
+        );
       }
     }
   }
