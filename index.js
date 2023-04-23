@@ -159,7 +159,6 @@ async function buildSite(config) {
       " Add links <a href='/relative/path' style='display:none;'></a> on the Home page to fetch these pages and add them to sitemap." +
       ` Add '${ATTR.skipSitemap}' attribute to <a> to NOT add them to sitemap.xml.`;
     console.log(logSitemap);
-    actionsCore.info(logSitemap);
 
     // get all links from the Home page
     const sitemapLinks = getLinksFromPage(
@@ -179,10 +178,8 @@ async function buildSite(config) {
   }
   sitemap = sitemap.replaceAll(site, targetHost); // replace any dev version with targetHost where present
   await ghWriteFile("sitemap.xml", sitemap);
-  console.log(`Total pages: ", ${pages.length}`);
-  actionsCore.info(`Total pages: ", ${pages.length}`);
+  console.log(`Total pages: ${pages.length}`);
   console.log("Pages: ", pages);
-  actionsCore.info(`Pages: ${JSON.stringify(pages)}`);
 
   // for (pagePath of pages) {
   //   const p = await getSinglePage(
@@ -208,7 +205,6 @@ async function buildSite(config) {
   }
 
   console.log(`🖼 Total processed images: ${PROCESSED_IMAGES.size}`);
-  actionsCore.info(`🖼 Total processed images: ${PROCESSED_IMAGES.size}`);
   // console.log("Processed images: ", PROCESSED_IMAGES);
 }
 
