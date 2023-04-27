@@ -373,7 +373,7 @@ function generateProxyCode(devHost, targetHost) {
   const { fetch: originalFetch } = window;
   window.fetch = async (...oArgs) => {
       let [oSrc, oConfig ] = oArgs;
-      if (oSrc.indexOf('${targetHost}') >= 0) {
+      if ((typeof oSrc === 'string') && oSrc.indexOf('${targetHost}') >= 0) {
         let oUrl = new URL(oSrc);
         oSrc = "${SITE_PROXY}/${devHost}" + oUrl.pathname + oUrl.search;
       }
