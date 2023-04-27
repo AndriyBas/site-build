@@ -369,7 +369,8 @@ function getJqueryUrl(index) {
 }
 
 function generateProxyCode(devHost, targetHost) {
-  return `<script>
+  return `
+  <script>
   const { fetch: originalFetch } = window;
   window.fetch = async (...oArgs) => {
       let [oSrc, oConfig ] = oArgs;
@@ -380,7 +381,8 @@ function generateProxyCode(devHost, targetHost) {
       const resp = await originalFetch(oSrc, oConfig);
       return resp;
   };
-  </script>`;
+  </script>
+  `;
 }
 
 async function processImages(path, html, targetHost) {
