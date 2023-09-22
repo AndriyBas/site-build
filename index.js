@@ -175,6 +175,13 @@ async function buildSite(config) {
     pages = getPagesFromSitemap(sitemap);
     const allLinks = getLinksFromPage(indexCode, targetHost, ATTR.skipFetch);
     pages = Array.from(new Set([...pages, ...allLinks]));
+    // NOTE: it's stupid, but doing this cos Webflow generates sitemap for PEmarketplace partially (without CMS blog articles)
+    if (targetHost.indexOf("www.pemarketplace.co") >= 0) {
+      sitemap = generateSitemap(
+        targetHost,
+        pages.filter((p) => p !== "404")
+      );
+    }
   }
   sitemap = sitemap.replaceAll(site, targetHost); // replace any dev version with targetHost where present
   await ghWriteFile("sitemap.xml", sitemap);
@@ -542,7 +549,7 @@ function generateSitemap(targetHost, pages) {
   let sitemap = ["", ...pages].reduce(
     (acc, current) =>
       `${acc}\n\t<url>\n\t\t<loc>${targetHost}/${current}</loc>\n\t</url>`,
-    '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'
   );
   return sitemap + "\n</urlset>";
 }
