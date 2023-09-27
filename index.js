@@ -55,6 +55,8 @@ const SITE_PROXY = "https://site-proxy-3.herokuapp.com"; // NOTE: NO "/" at the 
 // set to track downloaded images and not re-fetch them
 const PROCESSED_IMAGES = new Set();
 
+const FREE_SITES_WITH_CMS = ["www.pemarketplace.co", "www.buildnatively.com"];
+
 // write to current directory
 if (!process.env["GITHUB_WORKSPACE"]) {
   process.env["GITHUB_WORKSPACE"] = process.cwd();
@@ -176,7 +178,10 @@ async function buildSite(config) {
     const allLinks = getLinksFromPage(indexCode, targetHost, ATTR.skipFetch);
     pages = Array.from(new Set([...pages, ...allLinks]));
     // NOTE: it's stupid, but doing this cos Webflow generates sitemap for PEmarketplace partially (without CMS blog articles)
-    if (targetHost.indexOf("www.pemarketplace.co") >= 0) {
+    const isFreeSiteWithCMS = FREE_SITES_WITH_CMS.some(
+      (el) => targetHost.indexOf(el) >= 0
+    );
+    if (isFreeSiteWithCMS) {
       sitemap = generateSitemap(
         targetHost,
         pages.filter((p) => p !== "404")

@@ -1,0 +1,16 @@
+site: https://default-wtf.webflow.io/
+targetHost: https://www.default.wtf/
+robotsTxt: |
+  User-agent: * 
+  Allow: /
+  Sitemap: https://www.default.wtf/sitemap.xml
+# redirects: |
+#   /ua/ua /ua/home 301
+#   /ru/ru /ru/home 301
+# OR - robotsTxt: "User-agent: * \nDisallow: /  \nSitemap: https://pages.doorstead.com/sitemap.xml"
+headers: |
+  https://:project.pages.dev/*
+    X-Robots-Tag: noindex
+  /*
+    Strict-Transport-Security: max-age=31536000
+    X-Frame-Options: SAMEORIGIN
