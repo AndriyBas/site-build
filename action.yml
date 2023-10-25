@@ -1,22 +1,22 @@
-name: 'Site Build'
-description: 'Description'
-author: 'Author'
+name: "Site Build"
+description: "Description"
+author: "Author"
 branding:
-  icon: 'download-cloud'
-  color: 'gray-dark'
+  icon: "download-cloud"
+  color: "gray-dark"
 inputs:
   redirects:
-    description: '_redirect settings'
+    description: "_redirect settings"
     required: false
     type: string
   headers:
-    description: '_header settings'
+    description: "_header settings"
     required: false
     type: string
   robots:
-    description: 'robots.txt settings'
+    description: "robots.txt settings"
     required: false
     type: string
 runs:
-  using: 'node16'
-  main: 'index.js'
+  using: "node20"
+  main: "index.js"
