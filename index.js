@@ -174,7 +174,7 @@ async function buildSite(config) {
     pages = [...fetchLinks, "404"];
   } else {
     // get pages from Sitemap
-    pages = getPagesFromSitemap(sitemap);
+    pages = getPagesFromSitemap(sitemap, site);
     const allLinks = getLinksFromPage(indexCode, targetHost, ATTR.skipFetch);
     pages = Array.from(new Set([...pages, ...allLinks]));
     // NOTE: it's stupid, but doing this cos Webflow generates sitemap for PEmarketplace partially (without CMS blog articles)
@@ -255,14 +255,14 @@ async function ghWriteFile(fileName, content) {
   );
 }
 
-function getPagesFromSitemap(sitemap) {
+function getPagesFromSitemap(sitemap, site) {
   let pages = [...sitemap.matchAll(/<loc>\s*([^><\s]*)\s*<\/loc>/gis)];
   pages = pages
     .map((p) => p[1])
     // remove the host and the last "/"
     .map((url) => url.replace(/^https?:\/\/[^\/]+\//, "").replace(/\/$/gi, ""))
     // filter out the index page
-    .filter((page) => page);
+    .filter((page) => Boolean(page) && page !== site);
   return [...pages, "404"];
 }
 
