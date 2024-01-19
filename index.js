@@ -1,71 +1,74 @@
-const yaml = require("yaml");
-const actionsCore = require("@actions/core");
-const fetch = require("node-fetch"); // custom fetch, for Node on Actions
-const fs = require("fs").promises;
-const { PurgeCSS } = require("purgecss");
-const { JSDOM } = require("jsdom");
+const yaml = require('yaml');
+const actionsCore = require('@actions/core');
+const fetch = require('node-fetch'); // custom fetch, for Node on Actions
+const fs = require('fs').promises;
+const { PurgeCSS } = require('purgecss');
+const { JSDOM } = require('jsdom');
 
 const RETRY_COUNT = 3;
 const RETRY_DELAY = 5 * 1000; // 5 sec
 
-const CONFIG_FILE_NAME = "wfconfig.yml";
+const CONFIG_FILE_NAME = 'wfconfig.yml';
 
 const CSS_REGEX = new RegExp(
   /<link\s+[^>]*?href\s*=\s*['\"](https?:\/\/[\w\-\.\~]*(?:webflow\.com|website-files\.com)\/[^'\"]*?\.css[^'\"]*?)['\"].*?\/>/,
-  "is"
+  'is'
 );
-const CSS_FILE_NAME = "style.css";
+const CSS_FILE_NAME = 'style.css';
 const cssReplaceString = (relPath) => {
   return `<link href="${relPath}${CSS_FILE_NAME}" rel="stylesheet" type="text/css"/>`;
 };
 
 const JS_REGEX = new RegExp(
   /<script\s+[^>]*?src\s*=\s*['\"](https?:\/\/[\w\-\.\~]*?(?:webflow\.com|website-files\.com)\/[^'\"]*?\.js[^'\"]*?)['\"].*?><\/script>/,
-  "is"
+  'is'
 );
-const JS_FILE_NAME = "script.js";
+const JS_FILE_NAME = 'script.js';
 const jsReplaceString = (relPath) => {
   return `<script src="${relPath}${JS_FILE_NAME}" type="text/javascript"></script>`;
 };
 
 const JQUERY_REGEX = new RegExp(
   /<script\s+[^>]*?src\s*=\s*['\"](https:\/\/[\w\-\.\~]*?cloudfront\.net\/js\/jquery[^'\"]*?)['\"].*?><\/script>/,
-  "is"
+  'is'
 );
-const JQUERY_FILE_NAME = "jquery.js";
+const JQUERY_FILE_NAME = 'jquery.js';
 const jQueryReplaceString = (relPath) => {
   return `<script src="${relPath}${JQUERY_FILE_NAME}" type="text/javascript"></script>`;
 };
 
-const CONTENT_DIR_NAME = "content"; // whole site content
-const ASSETS_DIR_NAME = "sb_assets"; // for dynamic fetched assets (images)
-const STATIC_ASSETS_DIR_NAME = "sb_static"; // for static assets that persist (not deleted)
+const CONTENT_DIR_NAME = 'content'; // whole site content
+const ASSETS_DIR_NAME = 'sb_assets'; // for dynamic fetched assets (images)
+const KEEP_DIRS = [
+  'sb_static', // for static assets that persist (not deleted)
+  'functions', // for Cloudflare Functions
+];
 
 const ATTR = {
-  skipSitemap: "data-sb-skip-sitemap",
-  skipFetch: "data-sb-skip-fetch",
-  processImg: "data-sb-process-img",
-  embedScript: "data-sb-embed-script",
-  resultScript: "data-sb-result-script",
+  skipSitemap: 'data-sb-skip-sitemap',
+  skipFetch: 'data-sb-skip-fetch',
+  processImg: 'data-sb-process-img',
+  embedScript: 'data-sb-embed-script',
+  resultScript: 'data-sb-result-script',
 };
 
-const SITE_PROXY = "https://site-proxy-3.herokuapp.com"; // NOTE: NO "/" at the end
+const SITE_PROXY = 'https://site-proxy-3.herokuapp.com'; // NOTE: NO "/" at the end
 
 // TODO: consider replacing images everywhere, not only on the current page
 // set to track downloaded images and not re-fetch them
 const PROCESSED_IMAGES = new Set();
 
-const FREE_SITES_WITH_CMS = ["www.pemarketplace.co", "www.buildnatively.com"];
+const FREE_SITES_WITH_CMS = ['www.pemarketplace.co', 'www.buildnatively.com'];
 
 // write to current directory
-if (!process.env["GITHUB_WORKSPACE"]) {
-  process.env["GITHUB_WORKSPACE"] = process.cwd();
+if (!process.env['GITHUB_WORKSPACE']) {
+  process.env['GITHUB_WORKSPACE'] = process.cwd();
 }
 
 class RetryError extends Error {
   constructor(message) {
     super(message);
-    this.name = "RetryError";
+    this.name = 'RetryError';
   }
 }
 
@@ -85,16 +88,16 @@ async function init() {
 }
 
 async function buildSite(config) {
-  const site = config.site.replace(/\/$/i, ""); // remove the "/" at the end (if any)
-  const targetHost = config.targetHost.replace(/\/$/i, ""); // remove the "/" at the end (if any)
-  console.log("Building the website: ", site);
-  console.log("On the target host: ", targetHost);
+  const site = config.site.replace(/\/$/i, ''); // remove the "/" at the end (if any)
+  const targetHost = config.targetHost.replace(/\/$/i, ''); // remove the "/" at the end (if any)
+  console.log('Building the website: ', site);
+  console.log('On the target host: ', targetHost);
 
   console.log(
-    `Action inputs:\n👉 REDIRECTS: \n${actionsCore.getInput("redirects")}`
+    `Action inputs:\n👉 REDIRECTS: \n${actionsCore.getInput('redirects')}`
   );
-  console.log(`🐼 HEADERS: \n${actionsCore.getInput("headers")}`);
-  console.log(`🤖 ROBOTS: \n${actionsCore.getInput("robots")}`);
+  console.log(`🐼 HEADERS: \n${actionsCore.getInput('headers')}`);
+  console.log(`🤖 ROBOTS: \n${actionsCore.getInput('robots')}`);
 
   // create dir, remove previous files
   await dirCleanup();
@@ -103,53 +106,53 @@ async function buildSite(config) {
 
   // parse CSS
   const cssUrl = getCSSUrl(indexPage);
-  console.log("🎨 CSS url: ", cssUrl);
+  console.log('🎨 CSS url: ', cssUrl);
   let cssPage = await fetchPage(cssUrl);
   // hide the badge
-  cssPage += " .w-webflow-badge{display: none !important;}";
+  cssPage += ' .w-webflow-badge{display: none !important;}';
   await ghWriteFile(CSS_FILE_NAME, cssPage);
 
   // parse JS
   const jsUrl = getJSUrl(indexPage);
-  console.log("⚙️ JS url: ", jsUrl);
+  console.log('⚙️ JS url: ', jsUrl);
   let jsPage = await fetchPage(jsUrl);
   await ghWriteFile(JS_FILE_NAME, jsPage);
 
   // parse Jquery lib
   const jqueryUrl = getJqueryUrl(indexPage);
-  console.log("🧱 JQuery url: ", jqueryUrl);
+  console.log('🧱 JQuery url: ', jqueryUrl);
   let jqueryPage = await fetchPage(jqueryUrl);
   await ghWriteFile(JQUERY_FILE_NAME, jqueryPage);
 
   // apply 'robots.txt' from input, or from config, or get from {site}/robots.txt (if available)
-  let robots = actionsCore.getInput("robots") || config.robotsTxt;
+  let robots = actionsCore.getInput('robots') || config.robotsTxt;
   if (!robots) {
     robots = await fetchPage(`${site}/robots.txt`, true);
   }
-  if (robots) await ghWriteFile("robots.txt", robots);
+  if (robots) await ghWriteFile('robots.txt', robots);
 
   // add Cloudflare _redirects (if configured). Docs - https://developers.cloudflare.com/pages/platform/redirects/
-  const redirects = actionsCore.getInput("redirects") || config.redirects;
+  const redirects = actionsCore.getInput('redirects') || config.redirects;
   if (redirects) {
-    await ghWriteFile("_redirects", redirects);
+    await ghWriteFile('_redirects', redirects);
   }
 
   // add Cloudflare _headers (if configured). Docs - https://developers.cloudflare.com/pages/platform/headers/
-  const headers = actionsCore.getInput("headers") || config.headers;
+  const headers = actionsCore.getInput('headers') || config.headers;
   if (headers) {
-    await ghWriteFile("_headers", headers);
+    await ghWriteFile('_headers', headers);
   }
 
   // parse HTML pages
   const indexCode = await purgeAndEmbedHTML(
-    "index",
+    'index',
     indexPage,
     cssPage,
     jsPage,
     site,
     targetHost
   );
-  await ghWriteFile("index.html", indexCode);
+  await ghWriteFile('index.html', indexCode);
 
   // all pages that will fetch
   let pages = [];
@@ -171,7 +174,7 @@ async function buildSite(config) {
     const fetchLinks = getLinksFromPage(indexCode, targetHost);
 
     sitemap = generateSitemap(targetHost, sitemapLinks); // without 404
-    pages = [...fetchLinks, "404"];
+    pages = [...fetchLinks, '404'];
   } else {
     // get pages from Sitemap
     pages = getPagesFromSitemap(sitemap, site);
@@ -184,14 +187,14 @@ async function buildSite(config) {
     if (isFreeSiteWithCMS) {
       sitemap = generateSitemap(
         targetHost,
-        pages.filter((p) => p !== "404")
+        pages.filter((p) => p !== '404')
       );
     }
   }
   sitemap = sitemap.replaceAll(site, targetHost); // replace any dev version with targetHost where present
-  await ghWriteFile("sitemap.xml", sitemap);
+  await ghWriteFile('sitemap.xml', sitemap);
   console.log(`Total pages: ${pages.length}`);
-  console.log("Pages: ", pages);
+  console.log('Pages: ', pages);
 
   // for (pagePath of pages) {
   //   const p = await getSinglePage(
@@ -230,7 +233,7 @@ async function main() {
 
 main()
   .then(() => {
-    console.log("\nFinished parsing successfully! 🙌");
+    console.log('\nFinished parsing successfully! 🙌');
   })
   .catch((error) => {
     console.error(error);
@@ -244,7 +247,7 @@ main()
 
 async function ghReadRootFile(fileName) {
   return await fs.readFile(`${process.env.GITHUB_WORKSPACE}/${fileName}`, {
-    encoding: "utf8",
+    encoding: 'utf8',
   });
 }
 
@@ -260,24 +263,24 @@ function getPagesFromSitemap(sitemap, site) {
   pages = pages
     .map((p) => p[1])
     // remove the host and the last "/"
-    .map((url) => url.replace(/^https?:\/\/[^\/]+\//, "").replace(/\/$/gi, ""))
+    .map((url) => url.replace(/^https?:\/\/[^\/]+\//, '').replace(/\/$/gi, ''))
     // filter out the index page
     .filter((page) => Boolean(page) && page !== site);
-  return [...pages, "404"];
+  return [...pages, '404'];
 }
 
 function getLinksFromPage(pageCode, targetHost, skipByAttr) {
   // get all links from the Home page
   const dom = new JSDOM(pageCode);
   const doc = dom.window.document;
-  const allLinks = doc.querySelectorAll("a");
+  const allLinks = doc.querySelectorAll('a');
   const pages = new Set();
   for (l of allLinks) {
     try {
       const u = new URL(l.href, targetHost);
-      if (u.href.indexOf(targetHost) >= 0 && u.pathname !== "/") {
+      if (u.href.indexOf(targetHost) >= 0 && u.pathname !== '/') {
         if (!skipByAttr || !l.hasAttribute(skipByAttr)) {
-          pages.add(u.pathname.replace(/^\//i, "")); // remove the "/" in the beginning (if present)
+          pages.add(u.pathname.replace(/^\//i, '')); // remove the "/" in the beginning (if present)
         }
       }
     } catch (e) {
@@ -356,7 +359,7 @@ function getCSSUrl(index) {
   const cssMatch = index.match(CSS_REGEX);
 
   if (!cssMatch) {
-    throw new Error("CSS file not found");
+    throw new Error('CSS file not found');
   }
 
   return cssMatch[1];
@@ -366,7 +369,7 @@ function getJSUrl(index) {
   const jsMatch = index.match(JS_REGEX);
 
   if (!jsMatch) {
-    throw new Error("JS file not found");
+    throw new Error('JS file not found');
   }
   return jsMatch[1];
 }
@@ -375,7 +378,7 @@ function getJqueryUrl(index) {
   const jsMatch = index.match(JQUERY_REGEX);
 
   if (!jsMatch) {
-    throw new Error("Jquery file not found");
+    throw new Error('Jquery file not found');
   }
   return jsMatch[1];
 }
@@ -407,7 +410,7 @@ async function processImages(path, html, targetHost) {
       // `<img\\s[^>]*?src\\s*=\\s*['\"]([^'\"]*?)['\"][^>]*?${ATTR.processImg}[^>]*?\\/>`,
       // /<img\s[^>]*?data-sb-img-process[^>]*?\/>/
       `<img\\s[^>]*?${ATTR.processImg}[^>]*?\\/>`,
-      "gis"
+      'gis'
     )
   );
   // const relPath = getRelativePath(path);
@@ -457,7 +460,7 @@ async function processScripts(html) {
 
   // match all <script> first with ATTR.embedScript
   const scriptMatches = html.matchAll(
-    new RegExp(`<script\\s[^<]*?${ATTR.embedScript}[^<]*?<\\/script>`, "gis")
+    new RegExp(`<script\\s[^<]*?${ATTR.embedScript}[^<]*?<\\/script>`, 'gis')
   );
   for (scriptMatch of scriptMatches) {
     // console.log(" <>  scriptMatch tag:", scriptMatch[0]);
@@ -466,7 +469,7 @@ async function processScripts(html) {
     // get the link
     const srcLink = new RegExp(
       /src\s*=\s*[\"\'](https?:\/\/[\w\-\~]+(?:(?:\.[\w\-\~]+)+)[\w.,@?^=%&:\/~+#\-()\[\]!$*;{}\|]*)[\"\']/,
-      "gis"
+      'gis'
     ).exec(scriptTag)[1];
 
     // console.log(" <>  scriptMatch link:", srcLink);
@@ -474,7 +477,7 @@ async function processScripts(html) {
       const scriptSource = await fetchPage(srcLink, true);
       if (scriptSource) {
         // see https://stackoverflow.com/questions/56148062/javascript-how-to-skip-in-replace-function
-        const sciptReplacedDollars = scriptSource.replace(/\$/g, "$$$$");
+        const sciptReplacedDollars = scriptSource.replace(/\$/g, '$$$$');
         // console.log(" <>  scriptMatch scriptSource:", scriptSource);
 
         // replace the image link in the whole page
@@ -504,11 +507,11 @@ async function purgeAndEmbedHTML(
     content: [
       {
         raw: newHtml,
-        extension: "html",
+        extension: 'html',
       },
       {
         raw: jsCode,
-        extension: "js",
+        extension: 'js',
       },
     ],
     css: [
@@ -521,7 +524,7 @@ async function purgeAndEmbedHTML(
   // newHtml = newHtml.replace(/<html /, "\n<html ");
   newHtml = newHtml.replace(
     /^<!DOCTYPE html>\s*<!--\s*Last Published:.*?-->\s*<html /,
-    "<!DOCTYPE html>\n<html "
+    '<!DOCTYPE html>\n<html '
   );
 
   const proxyCode = generateProxyCode(devHost, targetHost);
@@ -551,12 +554,12 @@ async function purgeAndEmbedHTML(
 
 function generateSitemap(targetHost, pages) {
   // empty string — for the Home page
-  let sitemap = ["", ...pages].reduce(
+  let sitemap = ['', ...pages].reduce(
     (acc, current) =>
       `${acc}\n\t<url>\n\t\t<loc>${targetHost}/${current}</loc>\n\t</url>`,
     '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'
   );
-  return sitemap + "\n</urlset>";
+  return sitemap + '\n</urlset>';
 }
 
 async function retry(
@@ -591,13 +594,14 @@ function sleep(timeout) {
 async function dirCleanup() {
   const contentDir = `${process.env.GITHUB_WORKSPACE}/${CONTENT_DIR_NAME}`;
   // create content dir if does not exist
-  if (!(await pathExists(""))) {
+  if (!(await pathExists(''))) {
     await fs.mkdir(contentDir);
   }
   const currentFiles = await fs.readdir(contentDir);
   for (fileName of currentFiles) {
-    // delete all files except STATIC_ASSETS_DIR_NAME folder
-    if (STATIC_ASSETS_DIR_NAME != fileName) {
+    // delete all files except KEEP_DIRS folders
+    const shouldKeepDir = Boolean(KEEP_DIRS.find((d) => d === fileName));
+    if (!shouldKeepDir) {
       await fs.rm(`${contentDir}/${fileName}`, {
         recursive: true,
         force: true,
@@ -615,10 +619,10 @@ async function dirCleanup() {
 }
 
 async function enssurePathExists(path) {
-  let parts = path.split("/").filter((part) => part);
+  let parts = path.split('/').filter((part) => part);
   parts = parts.slice(0, parts.length - 1);
 
-  let current = "";
+  let current = '';
 
   for (const part of parts) {
     current += `/${part}`;
@@ -631,7 +635,7 @@ async function enssurePathExists(path) {
 }
 
 async function pathExists(path) {
-  if (path.startsWith("/")) {
+  if (path.startsWith('/')) {
     path = path.substring(1);
   }
 
@@ -647,5 +651,5 @@ async function pathExists(path) {
 
 function getRelativePath(path) {
   const count = (path.match(/\//g) || []).length;
-  return count === 0 ? "./" : "../".repeat(count);
+  return count === 0 ? './' : '../'.repeat(count);
 }
