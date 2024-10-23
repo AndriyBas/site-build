@@ -42,6 +42,7 @@ const ASSETS_DIR_NAME = 'sb_assets'; // for dynamic fetched assets (images)
 const KEEP_DIRS = [
   'sb_static', // for static assets that persist (not deleted)
   'functions', // for Cloudflare Functions
+  '.well-known', // for site verifications
 ];
 
 const ATTR = {
