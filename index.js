@@ -108,9 +108,8 @@ async function buildSite(config) {
   // parse CSS
   const cssUrl = getCSSUrl(indexPage);
   console.log('🎨 CSS url: ', cssUrl);
-  let cssPage = await fetchPage(cssUrl);
+  const cssPage = await fetchPage(cssUrl);
   // hide the badge
-  cssPage += ' .w-webflow-badge{display: none !important;}';
   await ghWriteFile(CSS_FILE_NAME, cssPage);
 
   // parse JS
@@ -532,7 +531,7 @@ async function purgeAndEmbedHTML(
   // replace the CSS
   newHtml = newHtml.replace(
     CSS_REGEX,
-    `<style>${purgeCSSResults[0].css}</style>${proxyCode}`
+    `<style>${purgeCSSResults[0].css} .w-webflow-badge{display: none !important;}</style>${proxyCode}`
   );
 
   // no minimization
