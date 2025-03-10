@@ -12,7 +12,7 @@
   "dependencies": {
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.0",
-    "jsdom": "^25.0.1",
+    "jsdom": "^26.0.0",
     "node-fetch": "^2.7.0",
     "purgecss": "^7.0.2",
     "yaml": "^2.6.0"
