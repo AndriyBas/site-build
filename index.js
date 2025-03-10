@@ -520,6 +520,7 @@ async function purgeAndEmbedHTML(
       },
     ],
   });
+  const resultCss = cssCode; // purgeCSSResults[0].css;
   // insert newline and remove the Timestamp, to have cleaner Git history
   // newHtml = newHtml.replace(/<html /, "\n<html ");
   newHtml = newHtml.replace(
@@ -531,7 +532,7 @@ async function purgeAndEmbedHTML(
   // replace the CSS
   newHtml = newHtml.replace(
     CSS_REGEX,
-    `<style>${purgeCSSResults[0].css} .w-webflow-badge{display: none !important;}</style>${proxyCode}`
+    `<style>${resultCss} .w-webflow-badge{display: none !important;}</style>${proxyCode}`
   );
 
   // no minimization
