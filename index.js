@@ -29,7 +29,7 @@ const jsReplaceString = (relPath) => {
 };
 
 const JQUERY_REGEX = new RegExp(
-  /<script\s+[^>]*?src\s*=\s*['\"](https:\/\/[\w\-\.\~]*?cloudfront\.net\/js\/jquery[^'\"]*?)['\"].*?><\/script>/,
+  /<script\s+[^>]*?src\s*=\s*['\"](https:\/\/[\w\-\.\~]*?(cloudfront\.net\/js\/jquery|website-files\.com\/js\/jquery)[^'\"]*?)['\"].*?><\/script>/,
   'is'
 );
 const JQUERY_FILE_NAME = 'jquery.js';
