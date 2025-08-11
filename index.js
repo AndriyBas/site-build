@@ -357,9 +357,7 @@ function generateProxyCode(devHost, targetHost, key) {
   <script>
   const originalFetch${key} = window.fetch || fetch;
 
-  console.log('📦 Original fetch${key}:', originalFetch${key});
-  
-  function createFetchOverride() {
+  function createFetchOverride${key}() {
     return async (...args) => {
       let [url, config] = args;
       if ((typeof url === 'string') && url.indexOf('${targetHost}') >= 0) {
@@ -370,26 +368,19 @@ function generateProxyCode(devHost, targetHost, key) {
     };
   }
 
-  console.log('✅ Fetch override applied');
-
   // Apply override immediately
-  window.fetch = createFetchOverride();
+  window.fetch = createFetchOverride${key}();
   
   // Re-apply override after a delay (to counter other scripts)
   setTimeout(() => {
-    window.fetch = createFetchOverride();
+    window.fetch = createFetchOverride${key}();
   }, 100);
   
   // Re-apply on DOMContentLoaded (as final backup)
   document.addEventListener('DOMContentLoaded', () => {
-    window.fetch = createFetchOverride();
+    window.fetch = createFetchOverride${key}();
   });
 
-  // Monitor for override restoration
-  setTimeout(() => {
-    console.log('🔍 Current fetch function:', window.fetch);
-    console.log('🔍 Is fetch still overridden?', window.fetch !== originalFetch${key});
-  }, 2000);
   </script>
   `;
 }
@@ -524,8 +515,6 @@ async function purgeAndEmbedHTML(path, htmlCode, cssCode, jsCode, devHost, targe
   newHtml = newHtml.replace(JS_REGEX, jsReplaceString(getRelativePath(path)));
   // replace the JQuery
   newHtml = newHtml.replace(JQUERY_REGEX, jQueryReplaceString(getRelativePath(path)));
-  // add proxy code at the end as final
-  newHtml = newHtml.replace(/<\/body>/gi, `${generateProxyCode(devHost, targetHost, 2)}</body>`);
   // embed scripts
   newHtml = processScripts(newHtml);
   return newHtml;
