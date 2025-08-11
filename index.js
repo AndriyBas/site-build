@@ -402,6 +402,41 @@ function generateProxyCode(devHost, targetHost) {
       };
       console.log('✅ Fetch override applied');
     }
+
+       // 2. XMLHTTPREQUEST OVERRIDE
+    if (window.XMLHttpRequest) {
+      const OriginalXHR = window.XMLHttpRequest;
+      
+      window.XMLHttpRequest = function XMLHttpRequest() {
+        const xhr = new OriginalXHR();
+        const originalOpen = xhr.open;
+        
+        // Override the open method to intercept URL
+        xhr.open = function(method, url, async, user, password) {
+          const transformedUrl = transformUrl(url);
+          return originalOpen.call(this, method, transformedUrl, async, user, password);
+        };
+        
+        return xhr;
+      };
+      
+      // Preserve prototype chain and static properties
+      window.XMLHttpRequest.prototype = OriginalXHR.prototype;
+      Object.setPrototypeOf(window.XMLHttpRequest, OriginalXHR);
+      
+      // Copy any static properties/methods
+      Object.getOwnPropertyNames(OriginalXHR).forEach(prop => {
+        if (prop !== 'prototype' && prop !== 'name' && prop !== 'length') {
+          try {
+            window.XMLHttpRequest[prop] = OriginalXHR[prop];
+          } catch (e) {
+            // Some properties might not be configurable
+          }
+        }
+      });
+      
+      console.log('✅ XMLHttpRequest override applied');
+    }
   })();
   </script>
   `;
