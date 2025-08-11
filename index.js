@@ -400,10 +400,9 @@ function generateProxyCode(devHost, targetHost) {
         
         return originalFetch.call(this, input, init);
       };
-      console.log('✅ Fetch override applied');
     }
 
-       // 2. XMLHTTPREQUEST OVERRIDE
+    // 2. XMLHTTPREQUEST OVERRIDE
     if (window.XMLHttpRequest) {
       const OriginalXHR = window.XMLHttpRequest;
       
@@ -433,9 +432,7 @@ function generateProxyCode(devHost, targetHost) {
             // Some properties might not be configurable
           }
         }
-      });
-      
-      console.log('✅ XMLHttpRequest override applied');
+      });      
     }
   })();
   </script>
