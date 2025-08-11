@@ -352,35 +352,57 @@ function getJqueryUrl(index) {
   return jsMatch[1];
 }
 
-function generateProxyCode(devHost, targetHost, key) {
+function generateProxyCode(devHost, targetHost) {
   return `
-  <script>
-  const originalFetch${key} = window.fetch || fetch;
-
-  function createFetchOverride${key}() {
-    return async (...args) => {
-      let [url, config] = args;
-      if ((typeof url === 'string') && url.indexOf('${targetHost}') >= 0) {
-        let oUrl = new URL(url);
-        url = "${SITE_PROXY}/${devHost}" + oUrl.pathname + oUrl.search;
+ <script>
+  (function() {
+    'use strict';
+    
+    const SITE_PROXY = '${SITE_PROXY}';
+    const DEV_HOST = '${devHost}';
+    const TARGET_HOST = '${targetHost}';
+        
+    // Helper function to check if URL should be proxied
+    function shouldProxy(url) {
+      return typeof url === 'string' && url.indexOf(TARGET_HOST) >= 0;
+    }
+    
+    // Helper function to transform URL
+    function transformUrl(url) {
+      if (!shouldProxy(url)) return url;
+      try {
+        const urlObj = new URL(url);
+        const newUrl = SITE_PROXY + '/' + DEV_HOST + urlObj.pathname + urlObj.search;
+        console.log('🔄 Proxying API call:', url, '→', newUrl);
+        return newUrl;
+      } catch (e) {
+        console.warn('Failed to transform URL:', url, e);
+        return url;
       }
-      return originalFetch${key}(url, config);
-    };
-  }
-
-  // Apply override immediately
-  window.fetch = createFetchOverride${key}();
-  
-  // Re-apply override after a delay (to counter other scripts)
-  setTimeout(() => {
-    window.fetch = createFetchOverride${key}();
-  }, 100);
-  
-  // Re-apply on DOMContentLoaded (as final backup)
-  document.addEventListener('DOMContentLoaded', () => {
-    window.fetch = createFetchOverride${key}();
-  });
-
+    }
+    
+    // 1. FETCH API OVERRIDE
+    if (window.fetch) {
+      const originalFetch = window.fetch;
+      window.fetch = async function(input, init) {
+        // Handle both string URLs and Request objects
+        let url = input;
+        if (input instanceof Request) {
+          url = input.url;
+          // Create new Request with transformed URL
+          if (shouldProxy(url)) {
+            const transformedUrl = transformUrl(url);
+            input = new Request(transformedUrl, input);
+          }
+        } else if (typeof input === 'string') {
+          input = transformUrl(input);
+        }
+        
+        return originalFetch.call(this, input, init);
+      };
+      console.log('✅ Fetch override applied');
+    }
+  })();
   </script>
   `;
 }
@@ -495,14 +517,11 @@ async function purgeAndEmbedHTML(path, htmlCode, cssCode, jsCode, devHost, targe
   // newHtml = newHtml.replace(/<html /, "\n<html ");
   newHtml = newHtml.replace(/^<!DOCTYPE html>\s*<!--\s*Last Published:.*?-->\s*<html /, '<!DOCTYPE html>\n<html ');
 
+  const proxyCode = generateProxyCode(devHost, targetHost);
   // replace the CSS
   newHtml = newHtml.replace(
     CSS_REGEX,
-    `<style>${resultCss} .w-webflow-badge{display: none !important;}</style>${generateProxyCode(
-      devHost,
-      targetHost,
-      1
-    )}`
+    `<style>${resultCss} .w-webflow-badge{display: none !important;}</style>${proxyCode}`
   );
 
   // no minimization
