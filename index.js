@@ -94,9 +94,7 @@ async function buildSite(config) {
   console.log('Building the website: ', site);
   console.log('On the target host: ', targetHost);
 
-  console.log(
-    `Action inputs:\n👉 REDIRECTS: \n${actionsCore.getInput('redirects')}`
-  );
+  console.log(`Action inputs:\n👉 REDIRECTS: \n${actionsCore.getInput('redirects')}`);
   console.log(`🐼 HEADERS: \n${actionsCore.getInput('headers')}`);
   console.log(`🤖 ROBOTS: \n${actionsCore.getInput('robots')}`);
 
@@ -144,14 +142,7 @@ async function buildSite(config) {
   }
 
   // parse HTML pages
-  const indexCode = await purgeAndEmbedHTML(
-    'index',
-    indexPage,
-    cssPage,
-    jsPage,
-    site,
-    targetHost
-  );
+  const indexCode = await purgeAndEmbedHTML('index', indexPage, cssPage, jsPage, site, targetHost);
   await ghWriteFile('index.html', indexCode);
 
   // all pages that will fetch
@@ -166,11 +157,7 @@ async function buildSite(config) {
     console.log(logSitemap);
 
     // get all links from the Home page
-    const sitemapLinks = getLinksFromPage(
-      indexCode,
-      targetHost,
-      ATTR.skipSitemap
-    );
+    const sitemapLinks = getLinksFromPage(indexCode, targetHost, ATTR.skipSitemap);
     const fetchLinks = getLinksFromPage(indexCode, targetHost);
 
     sitemap = generateSitemap(targetHost, sitemapLinks); // without 404
@@ -181,9 +168,7 @@ async function buildSite(config) {
     const allLinks = getLinksFromPage(indexCode, targetHost, ATTR.skipFetch);
     pages = Array.from(new Set([...pages, ...allLinks]));
     // NOTE: it's stupid, but doing this cos Webflow generates sitemap for PEmarketplace partially (without CMS blog articles)
-    const isFreeSiteWithCMS = FREE_SITES_WITH_CMS.some(
-      (el) => targetHost.indexOf(el) >= 0
-    );
+    const isFreeSiteWithCMS = FREE_SITES_WITH_CMS.some((el) => targetHost.indexOf(el) >= 0);
     if (isFreeSiteWithCMS) {
       sitemap = generateSitemap(
         targetHost,
@@ -209,9 +194,7 @@ async function buildSite(config) {
   //   await ghWriteFile(`${p.path}.html`, p.html);
   // }
   const allPages = await Promise.all(
-    pages.map((pagePath) =>
-      getSinglePage(site, pagePath, cssPage, jsPage, site, targetHost)
-    )
+    pages.map((pagePath) => getSinglePage(site, pagePath, cssPage, jsPage, site, targetHost))
   );
 
   for (const p of allPages) {
@@ -252,10 +235,7 @@ async function ghReadRootFile(fileName) {
 }
 
 async function ghWriteFile(fileName, content) {
-  return await fs.writeFile(
-    `${process.env.GITHUB_WORKSPACE}/${CONTENT_DIR_NAME}/${fileName}`,
-    content
-  );
+  return await fs.writeFile(`${process.env.GITHUB_WORKSPACE}/${CONTENT_DIR_NAME}/${fileName}`, content);
 }
 
 function getPagesFromSitemap(sitemap, site) {
@@ -294,14 +274,7 @@ async function getSinglePage(site, path, cssPage, jsPage, devHost, targetHost) {
   try {
     // let html = await retry(() => fetchPage(`${site}/${path}`));
     let html = await fetchPage(`${site}/${path}`);
-    html = await purgeAndEmbedHTML(
-      path,
-      html,
-      cssPage,
-      jsPage,
-      devHost,
-      targetHost
-    );
+    html = await purgeAndEmbedHTML(path, html, cssPage, jsPage, devHost, targetHost);
     return { path, html };
   } catch (error) {
     console.error(`Failed getting page ${path}: ${error.message}`);
@@ -317,9 +290,7 @@ async function fetchPage(url, nullFor404 = false) {
 
       if (!response.ok) {
         if (nullFor404 && response.status === 404) return null;
-        const err = new RetryError(
-          `${response.status}: Failed fetching page ${url} (${response.statusText})`
-        );
+        const err = new RetryError(`${response.status}: Failed fetching page ${url} (${response.statusText})`);
         console.error(err);
         throw err;
       }
@@ -339,9 +310,7 @@ async function fetchImage(imgUrl) {
       const response = await retry(() => fetch(imgUrl), RETRY_COUNT, Error); // retry any fetch error
 
       if (!response.ok) {
-        const err = new RetryError(
-          `${response.status}: Failed fetching resource ${imgUrl} (${response.statusText})`
-        );
+        const err = new RetryError(`${response.status}: Failed fetching resource ${imgUrl} (${response.statusText})`);
         console.error(err);
         throw err;
       }
@@ -383,19 +352,44 @@ function getJqueryUrl(index) {
   return jsMatch[1];
 }
 
-function generateProxyCode(devHost, targetHost) {
+function generateProxyCode(devHost, targetHost, key) {
   return `
   <script>
-  const { fetch: originalFetch } = window;
-  window.fetch = async (...oArgs) => {
-      let [oSrc, oConfig] = oArgs;
-      if ((typeof oSrc === 'string') && oSrc.indexOf('${targetHost}') >= 0) {
-        let oUrl = new URL(oSrc);
-        oSrc = "${SITE_PROXY}/${devHost}" + oUrl.pathname + oUrl.search;
+  const originalFetch${key} = window.fetch || fetch;
+
+  console.log('📦 Original fetch${key}:', originalFetch${key});
+  
+  function createFetchOverride() {
+    return async (...args) => {
+      let [url, config] = args;
+      if ((typeof url === 'string') && url.indexOf('${targetHost}') >= 0) {
+        let oUrl = new URL(url);
+        url = "${SITE_PROXY}/${devHost}" + oUrl.pathname + oUrl.search;
       }
-      const resp = await originalFetch(oSrc, oConfig);
-      return resp;
-  };
+      return originalFetch${key}(url, config);
+    };
+  }
+
+  console.log('✅ Fetch override applied');
+
+  // Apply override immediately
+  window.fetch = createFetchOverride();
+  
+  // Re-apply override after a delay (to counter other scripts)
+  setTimeout(() => {
+    window.fetch = createFetchOverride();
+  }, 100);
+  
+  // Re-apply on DOMContentLoaded (as final backup)
+  document.addEventListener('DOMContentLoaded', () => {
+    window.fetch = createFetchOverride();
+  });
+
+  // Monitor for override restoration
+  setTimeout(() => {
+    console.log('🔍 Current fetch function:', window.fetch);
+    console.log('🔍 Is fetch still overridden?', window.fetch !== originalFetch${key});
+  }, 2000);
   </script>
   `;
 }
@@ -440,10 +434,7 @@ async function processImages(path, html, targetHost) {
       }
 
       // replace the image link in the whole page
-      newHtml = newHtml.replaceAll(
-        imgUrl,
-        `${targetHost}/${ASSETS_DIR_NAME}/${imgPath}`
-      );
+      newHtml = newHtml.replaceAll(imgUrl, `${targetHost}/${ASSETS_DIR_NAME}/${imgPath}`);
 
       PROCESSED_IMAGES.add(imgUrl);
     }
@@ -459,9 +450,7 @@ async function processScripts(html) {
   let newHtml = html;
 
   // match all <script> first with ATTR.embedScript
-  const scriptMatches = html.matchAll(
-    new RegExp(`<script\\s[^<]*?${ATTR.embedScript}[^<]*?<\\/script>`, 'gis')
-  );
+  const scriptMatches = html.matchAll(new RegExp(`<script\\s[^<]*?${ATTR.embedScript}[^<]*?<\\/script>`, 'gis'));
   for (scriptMatch of scriptMatches) {
     // console.log(" <>  scriptMatch tag:", scriptMatch[0]);
 
@@ -481,10 +470,7 @@ async function processScripts(html) {
         // console.log(" <>  scriptMatch scriptSource:", scriptSource);
 
         // replace the image link in the whole page
-        newHtml = newHtml.replaceAll(
-          scriptTag,
-          `<script ${ATTR.resultScript}>${sciptReplacedDollars}</script>`
-        );
+        newHtml = newHtml.replaceAll(scriptTag, `<script ${ATTR.resultScript}>${sciptReplacedDollars}</script>`);
       }
     }
   }
@@ -492,14 +478,7 @@ async function processScripts(html) {
   return newHtml;
 }
 
-async function purgeAndEmbedHTML(
-  path,
-  htmlCode,
-  cssCode,
-  jsCode,
-  devHost,
-  targetHost
-) {
+async function purgeAndEmbedHTML(path, htmlCode, cssCode, jsCode, devHost, targetHost) {
   // console.log("🔪 purgeAndEmbedHTML: ", path);
   // let text = prettier.format(html, { parser: "html" });
   let newHtml = await processImages(path, htmlCode, targetHost);
@@ -523,16 +502,16 @@ async function purgeAndEmbedHTML(
   const resultCss = cssCode; // purgeCSSResults[0].css;
   // insert newline and remove the Timestamp, to have cleaner Git history
   // newHtml = newHtml.replace(/<html /, "\n<html ");
-  newHtml = newHtml.replace(
-    /^<!DOCTYPE html>\s*<!--\s*Last Published:.*?-->\s*<html /,
-    '<!DOCTYPE html>\n<html '
-  );
+  newHtml = newHtml.replace(/^<!DOCTYPE html>\s*<!--\s*Last Published:.*?-->\s*<html /, '<!DOCTYPE html>\n<html ');
 
-  const proxyCode = generateProxyCode(devHost, targetHost);
   // replace the CSS
   newHtml = newHtml.replace(
     CSS_REGEX,
-    `<style>${resultCss} .w-webflow-badge{display: none !important;}</style>${proxyCode}`
+    `<style>${resultCss} .w-webflow-badge{display: none !important;}</style>${generateProxyCode(
+      devHost,
+      targetHost,
+      1
+    )}`
   );
 
   // no minimization
@@ -544,10 +523,9 @@ async function purgeAndEmbedHTML(
   // replace the JS
   newHtml = newHtml.replace(JS_REGEX, jsReplaceString(getRelativePath(path)));
   // replace the JQuery
-  newHtml = newHtml.replace(
-    JQUERY_REGEX,
-    jQueryReplaceString(getRelativePath(path))
-  );
+  newHtml = newHtml.replace(JQUERY_REGEX, jQueryReplaceString(getRelativePath(path)));
+  // add proxy code at the end as final
+  newHtml = newHtml.replace(/<\/body>/gi, `${generateProxyCode(devHost, targetHost, 2)}</body>`);
   // embed scripts
   newHtml = processScripts(newHtml);
   return newHtml;
@@ -556,19 +534,13 @@ async function purgeAndEmbedHTML(
 function generateSitemap(targetHost, pages) {
   // empty string — for the Home page
   let sitemap = ['', ...pages].reduce(
-    (acc, current) =>
-      `${acc}\n\t<url>\n\t\t<loc>${targetHost}/${current}</loc>\n\t</url>`,
+    (acc, current) => `${acc}\n\t<url>\n\t\t<loc>${targetHost}/${current}</loc>\n\t</url>`,
     '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'
   );
   return sitemap + '\n</urlset>';
 }
 
-async function retry(
-  func,
-  retryCount = RETRY_COUNT,
-  errorType = RetryError,
-  delay = RETRY_DELAY
-) {
+async function retry(func, retryCount = RETRY_COUNT, errorType = RetryError, delay = RETRY_DELAY) {
   try {
     return await func();
   } catch (error) {
@@ -577,9 +549,7 @@ async function retry(
         await sleep(delay);
         return retry(func, retryCount - 1, errorType, delay);
       } else {
-        throw new Error(
-          `Too many retries, aborting. Original error: ${error.message}`
-        );
+        throw new Error(`Too many retries, aborting. Original error: ${error.message}`);
       }
     } else {
       throw error;
@@ -628,9 +598,7 @@ async function enssurePathExists(path) {
   for (const part of parts) {
     current += `/${part}`;
     if (!(await pathExists(current))) {
-      await fs.mkdir(
-        `${process.env.GITHUB_WORKSPACE}/${CONTENT_DIR_NAME}${current}`
-      );
+      await fs.mkdir(`${process.env.GITHUB_WORKSPACE}/${CONTENT_DIR_NAME}${current}`);
     }
   }
 }
@@ -641,9 +609,7 @@ async function pathExists(path) {
   }
 
   try {
-    await fs.access(
-      `${process.env.GITHUB_WORKSPACE}/${CONTENT_DIR_NAME}/${path}`
-    );
+    await fs.access(`${process.env.GITHUB_WORKSPACE}/${CONTENT_DIR_NAME}/${path}`);
     return true;
   } catch (error) {
     return false;
